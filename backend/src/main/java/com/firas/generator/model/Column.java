@@ -112,4 +112,21 @@ public class Column {
     
     /** @param unique Set to true if this column has a UNIQUE constraint */
     public void setUnique(boolean unique) { this.unique = unique; }
+
+    @Override
+    public String toString() {
+        return "Column{" +
+                "name='" + name + '\'' +
+                ", type='" + type + '\'' +
+                ", fieldName='" + fieldName + '\'' +
+                ", javaType='" + javaType + '\'' +
+                ", primaryKey=" + primaryKey +
+                ", autoIncrement=" + autoIncrement +
+                ", nullable=" + nullable +
+                ", foreignKey=" + foreignKey +
+                ", referencedTable='" + referencedTable + '\'' +
+                ", referencedColumn='" + referencedColumn + '\'' +
+                ", unique=" + unique +
+                '}';
+    }
 }

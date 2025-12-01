@@ -43,4 +43,15 @@ public class Table {
 
     public boolean isJoinTable() { return isJoinTable; }
     public void setJoinTable(boolean joinTable) { isJoinTable = joinTable; }
+
+    @Override
+    public String toString() {
+        return "Table{" +
+                "name='" + name + '\'' +
+                ", className='" + className + '\'' +
+                ", columns=" + columns +
+                ", relationships=" + relationships +
+                ", isJoinTable=" + isJoinTable +
+                '}';
+    }
 }

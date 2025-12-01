@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,13 +87,15 @@ public class ProjectGeneratorServiceImpl implements ProjectGeneratorService {
             generateApplicationProperties(projectDir, request);
             
             // Generate CRUD from SQL
-            if (request.getSqlContent() != null && !request.getSqlContent().isEmpty()) {
+            if (request.getTables() != null && !request.getTables().isEmpty()) {
                 generateCrud(projectDir, request);
             }
 
             // Zip the directory
             return ZipUtils.zipDirectory(projectDir);
             
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         } finally {
             FileUtils.deleteDirectory(rootDir);
         }
@@ -179,8 +182,8 @@ public class ProjectGeneratorServiceImpl implements ProjectGeneratorService {
      * @param projectDir The root project directory
      * @param request The project configuration containing SQL content
      */
-    private void generateCrud(File projectDir, ProjectRequest request) {
-        List<Table> tables = sqlParser.parseSql(request.getSqlContent());
+    private void generateCrud(File projectDir, ProjectRequest request) throws SQLException {
+        List<Table> tables = request.getTables();
         String packagePath = request.getPackageName().replace(".", "/");
         File javaSrc = new File(projectDir, "src/main/java/" + packagePath);
         

@@ -124,7 +124,8 @@ backend/
 │   │   │   ├── BackendApplication.java          # Main entry point
 │   │   │   ├── controller/
 │   │   │   │   ├── DependencyController.java    # Dependency API
-│   │   │   │   └── GeneratorController.java     # Project generation API
+│   │   │   │   ├── GeneratorController.java     # Project generation API
+│   │   │   │   └── SqlParserController.java     # SQL parsing API
 │   │   │   ├── model/
 │   │   │   │   ├── Column.java                  # Database column model
 │   │   │   │   ├── DependencyGroup.java         # Dependency grouping
@@ -250,8 +251,51 @@ templateService.generateFile("Entity.ftl", model, outputFile);
 ]
 ```
 
-### 2. Generate Project
+### 2. Parse SQL Schema
+**Endpoint**: `GET /api/sqlParser/{sql}`
+
+**Description**: Transforms SQL CREATE TABLE and ALTER TABLE statements into structured table metadata.
+
+**Path Parameter**:
+- `sql`: The SQL statements to parse (URL-encoded)
+
+**Example Request**:
+```bash
+curl "http://localhost:8080/api/sqlParser/CREATE%20TABLE%20users%20(id%20BIGINT%20PRIMARY%20KEY%20AUTO_INCREMENT,%20username%20VARCHAR(50));"
+```
+
+**Response**:
+```json
+[
+  {
+    "name": "users",
+    "className": "User",
+    "columns": [
+      {
+        "name": "id",
+        "fieldName": "id",
+        "javaType": "Long",
+        "sqlType": "BIGINT",
+        "primaryKey": true,
+        "autoIncrement": true
+      },
+      {
+        "name": "username",
+        "fieldName": "username",
+        "javaType": "String",
+        "sqlType": "VARCHAR",
+        "length": 50
+      }
+    ],
+    "relationships": []
+  }
+]
+```
+
+### 3. Generate Project
 **Endpoint**: `POST /api/generate/project`
+
+**Description**: Generates a complete Spring Boot project with optional CRUD code from table metadata.
 
 **Request Body**:
 ```json
@@ -264,18 +308,86 @@ templateService.generateFile("Entity.ftl", model, outputFile);
   "javaVersion": "17",
   "bootVersion": "3.2.0",
   "dependencies": ["web", "jpa", "mysql"],
-  "sqlContent": "CREATE TABLE users (id BIGINT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(50));"
+  "tables": [
+    {
+      "name": "users",
+      "className": "User",
+      "columns": [...],
+      "relationships": [...]
+    }
+  ]
 }
 ```
+
+**Note**: The `tables` field should contain the table metadata returned from the SQL Parser endpoint.
 
 **Response**: ZIP file download
 
 ---
 
+## Workflow: Two-Phase Project Generation
+
+The system now uses a two-phase approach for generating projects with CRUD code:
+
+### Phase 1: Parse SQL to Table Metadata
+```bash
+# Step 1: Parse SQL using the SqlParser endpoint
+curl "http://localhost:8080/api/sqlParser/{url-encoded-sql}" > tables.json
+```
+
+### Phase 2: Generate Project with Tables
+```bash
+# Step 2: Generate project using the parsed table metadata
+curl -X POST http://localhost:8080/api/generate/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "groupId": "com.example",
+    "artifactId": "demo",
+    "name": "Demo",
+    "description": "Demo project",
+    "packageName": "com.example.demo",
+    "javaVersion": "17",
+    "bootVersion": "3.2.0",
+    "dependencies": ["web", "jpa"],
+    "tables": <paste-tables-from-phase1>
+  }' \
+  --output demo.zip
+```
+
+### Benefits of Two-Phase Approach
+1. **Separation of Concerns**: SQL parsing is decoupled from project generation
+2. **Flexibility**: Clients can modify table metadata before generating code
+3. **Validation**: Clients can review and validate parsed tables before generation
+4. **Reusability**: Parsed tables can be reused for multiple project generations
+
+---
+
 ## Code Generation Flow
 
+### Complete Workflow (Two-Phase)
+
 ```
-User Request
+User submits SQL
+    ↓
+┌─────────────────────────────────────┐
+│   PHASE 1: SQL Parsing              │
+└─────────────────────────────────────┘
+    ↓
+SqlParserController.parseSql()
+    ↓
+SqlParser.parseSql()
+    ├─→ Parse CREATE TABLE statements
+    ├─→ Parse ALTER TABLE statements
+    ├─→ Detect relationships (FK, etc.)
+    └─→ Build Table objects with metadata
+    ↓
+Return List<Table> (JSON)
+    ↓
+┌─────────────────────────────────────┐
+│   PHASE 2: Project Generation       │
+└─────────────────────────────────────┘
+    ↓
+User submits ProjectRequest with tables
     ↓
 ProjectGeneratorServiceImpl.generateProject()
     ↓
@@ -293,8 +405,8 @@ ProjectGeneratorServiceImpl.generateProject()
 5. Generate application.properties
     └─→ Process application.properties.ftl template
     ↓
-6. If SQL provided:
-    ├─→ Parse SQL with SqlParser
+6. If tables provided:
+    ├─→ Use pre-parsed Table objects
     ├─→ For each table:
     │   ├─→ Generate Entity.java
     │   ├─→ Generate Repository.java

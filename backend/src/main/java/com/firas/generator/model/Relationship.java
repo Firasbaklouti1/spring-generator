@@ -57,4 +57,20 @@ public class Relationship {
 
     public String getTargetClassName() { return targetClassName; }
     public void setTargetClassName(String targetClassName) { this.targetClassName = targetClassName; }
+
+
+    @Override
+    public String toString() {
+        return "=============="+"Relationship{" +
+                "type=" + type +
+                ", sourceTable='" + sourceTable + '\'' +
+                ", targetTable='" + targetTable + '\'' +
+                ", sourceColumn='" + sourceColumn + '\'' +
+                ", targetColumn='" + targetColumn + '\'' +
+                ", joinTable='" + joinTable + '\'' +
+                ", mappedBy='" + mappedBy + '\'' +
+                ", fieldName='" + fieldName + '\'' +
+                ", targetClassName='" + targetClassName + '\'' +
+                '}';
+    }
 }

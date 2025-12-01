@@ -58,8 +58,7 @@ public class ProjectRequest {
     /** Flag to include mapper classes for entity-DTO conversion */
     private boolean includeMapper;
     
-    /** SQL schema content for automatic CRUD generation */
-    private String sqlContent;
+    private List<Table>tables;
 
     public String getGroupId() { return groupId; }
     public void setGroupId(String groupId) { this.groupId = groupId; }
@@ -103,6 +102,11 @@ public class ProjectRequest {
     public boolean isIncludeMapper() { return includeMapper; }
     public void setIncludeMapper(boolean includeMapper) { this.includeMapper = includeMapper; }
 
-    public String getSqlContent() { return sqlContent; }
-    public void setSqlContent(String sqlContent) { this.sqlContent = sqlContent; }
+    public List<Table> getTables() {
+        return tables;
+    }
+
+    public void setTables(List<Table> tables) {
+        this.tables = tables;
+    }
 }
