@@ -10,14 +10,44 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 
+/**
+ * REST Controller for generating Spring Boot projects.
+ * 
+ * This controller handles project generation requests, creating customized Spring Boot
+ * projects based on user specifications including dependencies, SQL schemas, and various
+ * code generation options. The generated project is returned as a downloadable ZIP file.
+ * 
+ * @author Firas Baklouti
+ * @version 1.0
+ * @since 2025-12-01
+ */
 @RestController
 @RequestMapping("/api/generate")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*") // Allow all for now
 public class GeneratorController {
 
+    /**
+     * Service responsible for orchestrating the project generation process
+     */
     private final ProjectGeneratorService projectGeneratorService;
 
+    /**
+     * Generates a complete Spring Boot project based on the provided configuration.
+     * 
+     * This endpoint accepts a project request containing:
+     * - Basic project metadata (groupId, artifactId, name, description)
+     * - Java and Spring Boot versions
+     * - Selected dependencies
+     * - Optional SQL schema for automatic CRUD generation
+     * - Flags for including various code components (entities, repositories, services, controllers)
+     * 
+     * The generated project is returned as a ZIP file ready for download and extraction.
+     * 
+     * @param request The project configuration containing all generation parameters
+     * @return ResponseEntity containing the ZIP file as byte array with appropriate headers
+     * @throws IOException If an error occurs during project generation or ZIP creation
+     */
     @PostMapping("/project")
     public ResponseEntity<byte[]> generateProject(@RequestBody ProjectRequest request) throws IOException {
         byte[] zipContent = projectGeneratorService.generateProject(request);

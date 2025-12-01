@@ -3,6 +3,17 @@ package com.firas.generator.model;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents a database table with its columns and relationships.
+ * 
+ * This class models a database table parsed from SQL CREATE TABLE statements.
+ * It contains the table's columns, relationships to other tables, and metadata
+ * used to generate JPA entity classes.
+ * 
+ * @author Firas Baklouti
+ * @version 1.0
+ * @since 2025-12-01
+ */
 public class Table {
     private String name;
     private String className;

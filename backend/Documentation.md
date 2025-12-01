@@ -1,0 +1,603 @@
+# Spring Boot Generator - Backend Documentation
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Getting Started](#getting-started)
+4. [Project Structure](#project-structure)
+5. [Core Components](#core-components)
+6. [API Endpoints](#api-endpoints)
+7. [Code Generation Flow](#code-generation-flow)
+8. [SQL Parser](#sql-parser)
+9. [Template System](#template-system)
+10. [Development Guide](#development-guide)
+11. [Testing](#testing)
+12. [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+The Spring Boot Generator is a web-based tool that generates customized Spring Boot projects with:
+- **Dynamic dependency management** fetched from Spring Initializr API
+- **Automatic CRUD generation** from SQL schemas
+- **Template-based code generation** using FreeMarker
+- **Complete project structure** with Maven configuration
+
+### Key Features
+- ✅ Generate Spring Boot projects with selected dependencies
+- ✅ Parse SQL CREATE TABLE and ALTER TABLE statements
+- ✅ Auto-generate JPA entities, repositories, services, and controllers
+- ✅ Detect and generate JPA relationships (OneToOne, OneToMany, ManyToOne, ManyToMany)
+- ✅ Download projects as ZIP files
+- ✅ Support for Java 17+ and Spring Boot 3.x
+
+---
+
+## Architecture
+
+### Technology Stack
+- **Framework**: Spring Boot 3.2.0
+- **Java Version**: 17
+- **Build Tool**: Maven
+- **Template Engine**: FreeMarker
+- **HTTP Client**: WebClient (Spring WebFlux)
+- **Utilities**: Apache Commons IO, Lombok
+
+### Design Pattern
+The application follows a layered architecture:
+
+```
+┌─────────────────────────────────────┐
+│         Controllers                 │  ← REST API Layer
+├─────────────────────────────────────┤
+│          Services                   │  ← Business Logic
+├─────────────────────────────────────┤
+│       Utilities & Parsers           │  ← Helper Components
+├─────────────────────────────────────┤
+│      Models & DTOs                  │  ← Data Transfer Objects
+└─────────────────────────────────────┘
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Java 17 or higher
+- Maven 3.6+
+- IDE (IntelliJ IDEA, Eclipse, or VS Code)
+- Git
+
+### Installation Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd springInitializer/backend
+   ```
+
+2. **Build the project**
+   ```bash
+   mvn clean install
+   ```
+
+3. **Run the application**
+   ```bash
+   mvn spring-boot:run
+   ```
+
+4. **Access the API**
+   - Base URL: `http://localhost:8080`
+   - Health check: `http://localhost:8080/actuator/health` (if actuator is enabled)
+
+### Quick Test
+```bash
+# Get available dependencies
+curl http://localhost:8080/api/dependencies/groups
+
+# Generate a simple project (POST request with JSON body)
+curl -X POST http://localhost:8080/api/generate/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "groupId": "com.example",
+    "artifactId": "demo",
+    "name": "Demo",
+    "description": "Demo project",
+    "packageName": "com.example.demo",
+    "javaVersion": "17",
+    "bootVersion": "3.2.0",
+    "dependencies": ["web", "jpa"]
+  }' \
+  --output demo.zip
+```
+
+---
+
+## Project Structure
+
+```
+backend/
+├── src/
+│   ├── main/
+│   │   ├── java/com/firas/generator/
+│   │   │   ├── BackendApplication.java          # Main entry point
+│   │   │   ├── controller/
+│   │   │   │   ├── DependencyController.java    # Dependency API
+│   │   │   │   └── GeneratorController.java     # Project generation API
+│   │   │   ├── model/
+│   │   │   │   ├── Column.java                  # Database column model
+│   │   │   │   ├── DependencyGroup.java         # Dependency grouping
+│   │   │   │   ├── DependencyMetadata.java      # Dependency details
+│   │   │   │   ├── ProjectRequest.java          # Generation request DTO
+│   │   │   │   ├── Relationship.java            # JPA relationship model
+│   │   │   │   ├── RelationshipType.java        # Relationship enum
+│   │   │   │   └── Table.java                   # Database table model
+│   │   │   ├── service/
+│   │   │   │   ├── DependencyRegistry.java      # Dependency management
+│   │   │   │   ├── ProjectGeneratorService.java # Generation interface
+│   │   │   │   ├── TemplateService.java         # Template processing
+│   │   │   │   └── impl/
+│   │   │   │       └── ProjectGeneratorServiceImpl.java
+│   │   │   └── util/
+│   │   │       ├── SqlParser.java               # SQL schema parser
+│   │   │       └── ZipUtils.java                # ZIP file utilities
+│   │   └── resources/
+│   │       ├── application.properties           # App configuration
+│   │       └── templates/                       # FreeMarker templates
+│   │           ├── pom.xml.ftl
+│   │           ├── Application.java.ftl
+│   │           ├── Entity.ftl
+│   │           ├── Repository.ftl
+│   │           ├── Service.ftl
+│   │           └── Controller.ftl
+│   └── test/
+│       └── java/                                # Unit tests
+└── pom.xml                                      # Maven configuration
+```
+
+---
+
+## Core Components
+
+### 1. DependencyRegistry
+**Purpose**: Fetches and manages Spring Boot dependencies from Spring Initializr API.
+
+**Key Methods**:
+- `initialize()`: Loads dependencies at startup
+- `getAllGroups()`: Returns all dependency groups
+- `resolveDependencies(List<String> ids)`: Converts dependency IDs to metadata
+
+**Example**:
+```java
+@Autowired
+private DependencyRegistry registry;
+
+List<DependencyGroup> groups = registry.getAllGroups();
+```
+
+### 2. SqlParser
+**Purpose**: Parses SQL schemas to extract table and column metadata.
+
+**Supported SQL Statements**:
+- `CREATE TABLE` with inline constraints
+- `ALTER TABLE ADD PRIMARY KEY`
+- `ALTER TABLE ADD FOREIGN KEY`
+- `ALTER TABLE MODIFY COLUMN`
+- `ALTER TABLE DROP COLUMN`
+- `ALTER TABLE ADD UNIQUE`
+
+**Example**:
+```java
+String sql = """
+    CREATE TABLE users (
+        id BIGINT PRIMARY KEY AUTO_INCREMENT,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(100)
+    );
+    """;
+
+List<Table> tables = sqlParser.parseSql(sql);
+```
+
+### 3. ProjectGeneratorService
+**Purpose**: Orchestrates the entire project generation process.
+
+**Generation Steps**:
+1. Create temporary directory
+2. Generate Maven structure (src/main/java, src/main/resources, etc.)
+3. Generate pom.xml with dependencies
+4. Generate main Application class
+5. Generate application.properties
+6. (Optional) Generate CRUD code from SQL
+7. ZIP the project
+8. Clean up temporary files
+
+### 4. TemplateService
+**Purpose**: Processes FreeMarker templates to generate code files.
+
+**Example**:
+```java
+Map<String, Object> model = new HashMap<>();
+model.put("packageName", "com.example.demo");
+model.put("className", "User");
+
+templateService.generateFile("Entity.ftl", model, outputFile);
+```
+
+---
+
+## API Endpoints
+
+### 1. Get Dependency Groups
+**Endpoint**: `GET /api/dependencies/groups`
+
+**Response**:
+```json
+[
+  {
+    "name": "Web",
+    "dependencies": [
+      {
+        "id": "web",
+        "name": "Spring Web",
+        "description": "Build web applications...",
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-web"
+      }
+    ]
+  }
+]
+```
+
+### 2. Generate Project
+**Endpoint**: `POST /api/generate/project`
+
+**Request Body**:
+```json
+{
+  "groupId": "com.example",
+  "artifactId": "myapp",
+  "name": "MyApp",
+  "description": "My Spring Boot Application",
+  "packageName": "com.example.myapp",
+  "javaVersion": "17",
+  "bootVersion": "3.2.0",
+  "dependencies": ["web", "jpa", "mysql"],
+  "sqlContent": "CREATE TABLE users (id BIGINT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(50));"
+}
+```
+
+**Response**: ZIP file download
+
+---
+
+## Code Generation Flow
+
+```
+User Request
+    ↓
+ProjectGeneratorServiceImpl.generateProject()
+    ↓
+1. Create temp directory
+    ↓
+2. Generate structure (src/main/java, src/main/resources)
+    ↓
+3. Generate pom.xml
+    ├─→ Resolve dependencies from DependencyRegistry
+    └─→ Process pom.xml.ftl template
+    ↓
+4. Generate Application.java
+    └─→ Process Application.java.ftl template
+    ↓
+5. Generate application.properties
+    └─→ Process application.properties.ftl template
+    ↓
+6. If SQL provided:
+    ├─→ Parse SQL with SqlParser
+    ├─→ For each table:
+    │   ├─→ Generate Entity.java
+    │   ├─→ Generate Repository.java
+    │   ├─→ Generate Service.java
+    │   └─→ Generate Controller.java
+    ↓
+7. ZIP the project directory
+    └─→ Use ZipUtils.zipDirectory()
+    ↓
+8. Clean up temp directory
+    ↓
+Return ZIP byte array
+```
+
+---
+
+## SQL Parser
+
+### Relationship Detection
+
+The SQL parser automatically detects JPA relationships:
+
+**OneToMany / ManyToOne**:
+```sql
+CREATE TABLE orders (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+-- Creates: User.orders (OneToMany) and Order.user (ManyToOne)
+```
+
+**OneToOne**:
+```sql
+CREATE TABLE profiles (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT UNIQUE,  -- UNIQUE makes it OneToOne
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+**ManyToMany**:
+```sql
+-- Join table with exactly 2 foreign keys
+CREATE TABLE user_roles (
+    user_id BIGINT,
+    role_id BIGINT,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (role_id) REFERENCES roles(id)
+);
+-- Creates: User.roles and Role.users (both ManyToMany)
+```
+
+### Supported Data Types
+
+| SQL Type | Java Type |
+|----------|-----------|
+| VARCHAR, TEXT, CHAR | String |
+| INT, INTEGER | Integer |
+| BIGINT | Long |
+| DOUBLE, FLOAT | Double |
+| BOOLEAN, BIT | Boolean |
+| DATE | LocalDate |
+| TIMESTAMP, DATETIME | LocalDateTime |
+
+---
+
+## Template System
+
+### Available Templates
+
+Located in `src/main/resources/templates/`:
+
+1. **pom.xml.ftl**: Maven configuration
+2. **Application.java.ftl**: Main Spring Boot class
+3. **application.properties.ftl**: Configuration file
+4. **Entity.ftl**: JPA entity class
+5. **Repository.ftl**: Spring Data repository
+6. **Service.ftl**: Service layer
+7. **Controller.ftl**: REST controller
+
+### Template Variables
+
+**Entity.ftl**:
+- `table`: Table object with columns and relationships
+- `packageName`: Base package name
+
+**Example Entity Template Usage**:
+```ftl
+package ${packageName}.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "${table.name}")
+public class ${table.className} {
+    <#list table.columns as column>
+    <#if column.primaryKey>
+    @Id
+    <#if column.autoIncrement>
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    </#if>
+    </#if>
+    private ${column.javaType} ${column.fieldName};
+    </#list>
+}
+```
+
+---
+
+## Development Guide
+
+### Adding a New Dependency Group
+
+1. Modify `DependencyRegistry.java`:
+```java
+private void initializeStaticDependencies() {
+    DependencyGroup myGroup = new DependencyGroup("My Group");
+    myGroup.addDependency(createDependency(
+        "my-dep", "My Dependency", "Description",
+        "com.example", "my-artifact", "1.0.0", "compile"
+    ));
+    groups.add(myGroup);
+}
+```
+
+### Adding a New Template
+
+1. Create template file in `src/main/resources/templates/MyTemplate.ftl`
+2. Use in service:
+```java
+templateService.generateFile("MyTemplate.ftl", model, outputFile);
+```
+
+### Extending SQL Parser
+
+To support new SQL statements:
+
+1. Add regex pattern:
+```java
+private static final Pattern MY_PATTERN = Pattern.compile(
+    "MY_SQL_PATTERN", Pattern.CASE_INSENSITIVE
+);
+```
+
+2. Add parsing logic in `parseSql()` method
+
+### Custom Code Generation
+
+Extend `ProjectGeneratorServiceImpl`:
+
+```java
+private void generateCustomCode(File projectDir, ProjectRequest request) {
+    // Your custom generation logic
+    Map<String, Object> model = new HashMap<>();
+    model.put("customData", myData);
+    
+    templateService.generateFile("CustomTemplate.ftl", model, outputFile);
+}
+```
+
+---
+
+## Testing
+
+### Unit Testing Example
+
+```java
+@SpringBootTest
+class SqlParserTest {
+    
+    @Autowired
+    private SqlParser sqlParser;
+    
+    @Test
+    void testParseCreateTable() {
+        String sql = "CREATE TABLE users (id BIGINT PRIMARY KEY);";
+        List<Table> tables = sqlParser.parseSql(sql);
+        
+        assertEquals(1, tables.size());
+        assertEquals("users", tables.get(0).getName());
+    }
+}
+```
+
+### Integration Testing
+
+```java
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+class GeneratorControllerTest {
+    
+    @Autowired
+    private TestRestTemplate restTemplate;
+    
+    @Test
+    void testGenerateProject() {
+        ProjectRequest request = new ProjectRequest();
+        request.setArtifactId("test-app");
+        // ... set other fields
+        
+        ResponseEntity<byte[]> response = restTemplate.postForEntity(
+            "/api/generate/project", request, byte[].class
+        );
+        
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+    }
+}
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**1. Dependencies not loading**
+- Check internet connection
+- Verify Spring Initializr API is accessible: `https://start.spring.io/metadata/config`
+- Check logs for WebClient errors
+
+**2. SQL parsing errors**
+- Ensure SQL syntax is valid
+- Check for unsupported SQL features
+- Enable debug logging: `logging.level.com.firas.generator.util.SqlParser=DEBUG`
+
+**3. Template processing errors**
+- Verify template file exists in `src/main/resources/templates/`
+- Check template syntax (FreeMarker)
+- Review error logs for specific line numbers
+
+**4. ZIP generation fails**
+- Check disk space
+- Verify write permissions on temp directory
+- Review file paths for invalid characters
+
+### Debug Mode
+
+Enable detailed logging in `application.properties`:
+```properties
+logging.level.com.firas.generator=DEBUG
+logging.level.org.springframework.web=DEBUG
+```
+
+### Useful Commands
+
+```bash
+# Clean build
+mvn clean install -DskipTests
+
+# Run with specific profile
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Generate dependency tree
+mvn dependency:tree
+
+# Check for updates
+mvn versions:display-dependency-updates
+```
+
+---
+
+## Contributing
+
+### Code Style
+- Follow Java naming conventions
+- Use meaningful variable names
+- Add JavaDoc comments for public methods
+- Keep methods focused and small (< 50 lines)
+
+### Git Workflow
+1. Create feature branch: `git checkout -b feature/my-feature`
+2. Make changes and commit: `git commit -m "Add feature"`
+3. Push to remote: `git push origin feature/my-feature`
+4. Create pull request
+
+### Documentation
+- Update this file when adding new features
+- Add inline comments for complex logic
+- Update JavaDoc for API changes
+
+---
+
+## Resources
+
+- [Spring Boot Documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/)
+- [Spring Initializr API](https://github.com/spring-io/initializr)
+- [FreeMarker Documentation](https://freemarker.apache.org/docs/)
+- [JPA Relationships Guide](https://www.baeldung.com/jpa-hibernate-associations)
+
+---
+
+## License
+
+[Add your license information here]
+
+## Contact
+
+For questions or support, contact: [Your contact information]
+
+---
+
+**Last Updated**: 2025-12-01
+**Version**: 1.0
