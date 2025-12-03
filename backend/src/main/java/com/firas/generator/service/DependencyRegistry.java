@@ -171,23 +171,4 @@ public class DependencyRegistry {
         return dependencyMap.get(id);
     }
 
-    /**
-     * Resolves a list of dependency IDs to their full metadata objects.
-     * 
-     * This method is used to convert the dependency IDs from a project request
-     * into complete dependency metadata for inclusion in the generated pom.xml.
-     * 
-     * @param dependencyIds List of dependency IDs to resolve
-     * @return List of resolved DependencyMetadata objects (excludes any IDs not found)
-     */
-    public List<DependencyMetadata> resolveDependencies(List<String> dependencyIds) {
-        List<DependencyMetadata> resolved = new ArrayList<>();
-        if (dependencyIds != null) {
-            for (String id : dependencyIds) {
-                DependencyMetadata dep = getDependencyById(id);
-                if (dep != null) resolved.add(dep);
-            }
-        }
-        return resolved;
-    }
 }

@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of ProjectGeneratorService for generating Spring Boot projects.
@@ -128,9 +129,12 @@ public class ProjectGeneratorServiceImpl implements ProjectGeneratorService {
     private void generatePom(File projectDir, ProjectRequest request) {
         Map<String, Object> model = new HashMap<>();
         model.put("request", request);
+        System.out.println("dependencies before resolvation " + request.getDependencies());
         
         // Resolve dependencies from registry
-        List<DependencyMetadata> resolvedDependencies = dependencyRegistry.resolveDependencies(request.getDependencies());
+        List<DependencyMetadata> resolvedDependencies = request.getDependencies();
+
+        System.out.println("dependencies after resolvation " + resolvedDependencies);
         model.put("dependencies", resolvedDependencies);
         
         // Check if Lombok is in dependencies

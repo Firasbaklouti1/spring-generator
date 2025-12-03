@@ -307,7 +307,22 @@ curl "http://localhost:8080/api/sqlParser/CREATE%20TABLE%20users%20(id%20BIGINT%
   "packageName": "com.example.myapp",
   "javaVersion": "17",
   "bootVersion": "3.2.0",
-  "dependencies": ["web", "jpa", "mysql"],
+  "dependencies": [
+    {
+      "id": "web",
+      "name": "Spring Web",
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-web",
+      "scope": "compile",
+      "isStarter": true
+    }
+  ],
+  "includeEntity": true,
+  "includeRepository": true,
+  "includeService": true,
+  "includeController": true,
+  "includeDto": false,
+  "includeMapper": false,
   "tables": [
     {
       "name": "users",

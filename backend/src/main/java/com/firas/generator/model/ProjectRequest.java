@@ -35,8 +35,8 @@ public class ProjectRequest {
     /** Spring Boot version to use (e.g., "3.2.0") */
     private String bootVersion;
     
-    /** List of dependency IDs to include in the project */
-    private List<String> dependencies;
+    /** List of dependencys to include in the project */
+    private List<DependencyMetadata> dependencies;
     
     // Advanced features for code generation
     
@@ -81,8 +81,13 @@ public class ProjectRequest {
     public String getBootVersion() { return bootVersion; }
     public void setBootVersion(String bootVersion) { this.bootVersion = bootVersion; }
 
-    public List<String> getDependencies() { return dependencies; }
-    public void setDependencies(List<String> dependencies) { this.dependencies = dependencies; }
+    public List<DependencyMetadata> getDependencies() {
+        return dependencies;
+    }
+
+    public void setDependencies(List<DependencyMetadata> dependencies) {
+        this.dependencies = dependencies;
+    }
 
     public boolean isIncludeEntity() { return includeEntity; }
     public void setIncludeEntity(boolean includeEntity) { this.includeEntity = includeEntity; }
