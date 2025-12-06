@@ -768,10 +768,300 @@ npm run build
 
 ---
 
+## AI Schema Generation
+
+### Overview
+
+The frontend includes an **AI-powered schema generation modal** that allows users to create or modify database schemas using natural language descriptions.
+
+### Features
+
+- **Natural Language Input**: Describe your schema in plain English
+- **Conversation Mode**: Maintain context across multiple requests
+- **Session Management**: Persistent session IDs for context tracking
+- **Action Types**: CREATE, EDIT, DELETE, REPLACE operations
+- **Safety Controls**: Destructive operations require explicit permission
+- **Undo/Redo**: Full history tracking with rollback support
+- **Example Prompts**: Quick-start templates for common use cases
+
+### Component: AiGenerateModal
+
+**Location**: `components/generator/ai-generate-modal.tsx` (938 lines)
+
+#### Key Features
+
+1. **Prompt Input**: Multi-line textarea for schema descriptions
+2. **Example Prompts**: Pre-defined templates like:
+   - "Create users, products, and orders tables for e-commerce"
+   - "Add created_at and updated_at timestamps to all tables"
+   - "Create a blog schema with posts, comments, and tags"
+
+3. **Destructive Actions Toggle**: Safety checkbox for DELETE/REPLACE operations
+4. **Conversation History**: Displays user prompts and AI responses
+5. **Session Info**: Shows session ID and table count
+6. **Export**: Download conversation history as JSON
+
+#### Usage
+
+```tsx
+import { AiGenerateModal } from '@/components/generator/ai-generate-modal'
+
+// In your component
+const [showAiModal, setShowAiModal] = useState(false)
+
+<AiGenerateModal 
+  onClose={() => setShowAiModal(false)}
+  conversationMode={true}  // Optional: enables multi-turn conversation
+/>
+```
+
+### Backend Integration
+
+The modal communicates with the backend AI service:
+
+**API Endpoint**: `POST http://localhost:8080/api/ai/generateTables`
+
+**Request**:
+```typescript
+const requestBody = {
+  prompt: "Create e-commerce schema",
+  currentTables: tables,  // Current schema state
+  sessionId: sessionId,   // For conversation mode
+  allowDestructive: false,  // Safety flag
+  timestamp: Date.now()
+}
+
+const response = await fetch('http://localhost:8080/api/ai/generateTables', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  body: JSON.stringify(requestBody)
+})
+
+const data = await response.json()
+// Returns: { sessionId, actions[], explanation }
+```
+
+### Table Normalization
+
+AI-generated tables from the backend lack `id` and `position` fields required for React Flow rendering. The frontend normalizes these automatically:
+
+```typescript
+function normalizeTable(table: any, index: number, allTables: Table[] = []): Table {
+  // Generate unique ID if missing
+  const id = table.id || `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  
+  // Position calculated by hierarchical layout algorithm
+  const position = table.position || { x: 0, y: 0 }
+  
+  // Ensure relationships array exists
+  const relationships = table.relationships || []
+  
+  return { ...table, id, position, relationships }
+}
+```
+
+### Action Processing
+
+The modal handles four action types from the AI:
+
+#### CREATE
+```typescript
+case "create":
+  // Normalize tables and check for duplicates
+  const normalized Tables = action.tables.map((t, i) => normalizeTable(t, i, action.tables))
+  const toCreate = normalizedTables.filter(nt => !updatedTables.some(ex => ex.name === nt.name))
+  
+  // Recalculate ALL positions hierarchically
+  const allTables = [...updatedTables, ...toCreate]
+  updatedTables = calculateHierarchicalPositions(allTables)
+```
+
+#### EDIT
+```typescript
+case "edit":
+  // Merge edited table data preserving ID
+  updatedTables[index] = {
+    ...updatedTables[index],
+    ...newTable,
+    id: updatedTables[index].id,
+    relationships: newTable.relationships ?? updatedTables[index].relationships
+  }
+  
+  // Recalculate positions after edits
+  updatedTables = calculateHierarchicalPositions(updatedTables)
+```
+
+#### DELETE (requires allowDestructive)
+```typescript
+case "delete":
+  updatedTables = updatedTables.filter(t => !action.tableNames.includes(t.name))
+```
+
+#### REPLACE (requires allowDestructive)
+```typescript
+case "replace":
+  const normalized = action.newSchema.map((t, i) => normalizeTable(t, i, action.newSchema))
+  updatedTables = calculateHierarchicalPositions(normalized)
+```
+
+---
+
+## Hierarchical Table Layout
+
+### Overview
+
+The schema editor uses an advanced **hierarchical layout algorithm** that positions tables based on their relationships instead of a simple grid, creating clean, readable database diagrams.
+
+### Layout Algorithm
+
+#### 1. Relationship Graph Analysis
+
+**Function**: `buildRelationshipGraph(tables: Table[])`
+
+Builds a dependency graph showing parent-child relationships:
+- Analyzes foreign key columns (`foreignKey: true`, `referencedTable`)
+- Analyzes explicit relationships (`MANY_TO_ONE` indicates dependency)
+- Returns `Map<string, Set<string>>` (table → parent tables)
+
+```typescript
+function buildRelationshipGraph(tables: Table[]): Map<string, Set<string>> {
+  const graph = new Map<string, Set<string>>()
+  
+  tables.forEach(table => {
+    const parents = new Set<string>()
+    
+    // Check foreign key columns
+    table.columns?.forEach(col => {
+      if (col.foreignKey && col.referencedTable) {
+        parents.add(col.referencedTable.toLowerCase())
+      }
+    })
+    
+    // Check explicit relationships
+    table.relationships?.forEach(rel => {
+      const relType = typeof rel.type === 'object' ? rel.type.type : rel.type
+      if (relType === 'MANY_TO_ONE') {
+        parents.add(rel.targetTable.toLowerCase())
+      }
+    })
+    
+    graph.set(table.name.toLowerCase(), parents)
+  })
+  
+  return graph
+}
+```
+
+#### 2. Level Assignment
+
+**Function**: `assignLevels(tables: Table[], graph: Map<string, Set<string>>)`
+
+Assigns hierarchical levels using topological sorting:
+- **Level 0**: Tables with no parents (root/independent tables)
+- **Level 1**: Tables depending only on level 0 tables
+- **Level N**: Tables depending on levels 0 through N-1
+- Handles circular dependencies gracefully
+
+```typescript
+function assignLevels(tables: Table[], graph: Map<string, Set<string>>): Map<string, number> {
+  const levels = new Map<string, number>()
+  const assigned = new Set<string>()
+  
+  let currentLevel = 0
+  let remaining = new Set(tables.map(t => t.name.toLowerCase()))
+  
+  while (remaining.size > 0) {
+    const canAssign: string[] = []
+    
+    remaining.forEach(tableName => {
+      const parents = graph.get(tableName) || new Set()
+      const allParentsAssigned = Array.from(parents).every(p => assigned.has(p))
+      
+      if (parents.size === 0 || allParentsAssigned) {
+        canAssign.push(tableName)
+      }
+    })
+    
+    canAssign.forEach(tableName => {
+      levels.set(tableName, currentLevel)
+      assigned.add(tableName)
+      remaining.delete(tableName)
+    })
+    
+    currentLevel++
+    
+    // Handle circular dependencies
+    if (canAssign.length === 0 && remaining.size > 0) {
+      remaining.forEach(tableName => {
+        levels.set(tableName, currentLevel)
+      })
+      break
+    }
+  }
+  
+  return levels
+}
+```
+
+#### 3. Barycenter Optimization
+
+**Enhancement**: `calculateHierarchicalPositions(tables: Table[])`
+
+Uses barycenter heuristic to minimize edge crossings:
+- Groups tables by level
+- Computes barycenter (average position of neighbors)
+- Performs multiple passes (top-down, bottom-up)
+- Results in cleaner, more readable layouts
+
+**Layout Parameters**:
+```typescript
+const LAYOUT_CONFIG = {
+  START_X: 200,        // Starting X position
+  START_Y: 100,        // Starting Y position  
+  LEVEL_GAP_Y: 500,    // Vertical spacing between levels
+  TABLE_GAP_X: 650,    // Horizontal spacing within level
+}
+```
+
+### Visual Improvements
+
+**Before (Grid Layout)**:
+- All tables bunched in upper-left (3×3 grid)
+- Small spacing (320px × 160px)
+- No relationship awareness
+- Overlapping connections
+
+**After (Hierarchical Layout)**:
+- Tables spread across canvas
+- Parent tables above children
+- Large spacing (650px × 500px)
+- Clean,traceable relationships
+- Barycenter optimization reduces crossings
+
+### Example
+
+For an e-commerce schema:
+```
+Level 0: users, products (no dependencies)
+Level 1: orders (depends on users)
+Level 2: order_items (depends on orders and products)
+```
+
+Tables are positioned:
+- Vertically by dependency level
+- Horizontally spread evenly within each level
+- Optimized to reduce connection crossings
+
+---
+
 ## Future Enhancements
 
 ### Planned Features
-- [ ] Real AI schema generation integration (OpenAI/Gemini API)
+- [x] AI schema generation integration (Gemini API) ✅
+- [x] Hierarchical table layout with barycenter optimization ✅
 - [ ] User authentication and project saving
 - [ ] Project templates library
 - [ ] Export diagrams as PNG/SVG
@@ -794,9 +1084,11 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 - [Zustand](https://zustand-demo.pmnd.rs/)
 - [React Flow](https://reactflow.dev/)
 - [Framer Motion](https://www.framer.com/motion/)
+- [Google Gemini API](https://ai.google.dev/docs)
 
 ---
 
-**Last Updated**: 2025-12-03  
+**Last Updated**: 2025-12-06  
+**Version**: 2.0
 **Version**: 1.0  
 **Author**: Spring Generator Team

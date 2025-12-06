@@ -20,7 +20,10 @@ public class Table {
     private List<Column> columns = new ArrayList<>();
     private List<Relationship> relationships = new ArrayList<>();
     private boolean isJoinTable = false;
-    
+
+    public Table() {
+    }
+
     public void addColumn(Column column) {
         this.columns.add(column);
     }

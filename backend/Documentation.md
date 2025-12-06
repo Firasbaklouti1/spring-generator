@@ -733,6 +733,208 @@ mvn versions:display-dependency-updates
 
 ---
 
+## AI Generation Features
+
+### Overview
+
+The backend now includes **AI-powered schema generation** using Google's **Agent Development Kit (ADK)**. This feature allows users to generate or modify database schemas using natural language prompts.
+
+### Technology Stack
+
+- **Google ADK 0.1.0**: Agent framework for LLM interactions
+- **Gemini 2.0 Flash**: Language model for schema generation
+- **RxJava 3**: Reactive event processing
+- **Jackson**: JSON parsing and serialization
+
+### Architecture
+
+#### Components
+
+1. **AIController** (`controller/AIController.java`)
+   - REST endpoint for AI requests
+   - Handles errors and returns structured responses
+
+2. **AIGeneratedTablesService** (`service/AIGeneratedTablesService.java`)
+   - Core AI service using Google ADK
+   - LLM agent configuration
+   - Session management
+   - Action processing
+
+3. **Model Classes** (`model/AI/`)
+   - `AIGeneratedTables`: Response structure
+   - `AIGeneratedTablesRequest`: Request payload
+   - `TableAction`: Schema modification actions
+   - `TableActionType`: Action types enum (create, edit, delete, replace)
+   - `AIagent`: Agent interface
+
+### API Endpoint
+
+#### Generate Tables with AI
+```
+POST /api/ai/generateTables
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "prompt": "Create users, products, orders, and order_items tables for e-commerce",
+  "currentTables": [...],  // Array of existing Table objects
+  "sessionId": "optional-session-id",
+  "allowDestructive": false,
+  "timestamp": 1701234567890
+}
+```
+
+**Response**:
+```json
+{
+  "sessionId": "session-abc123",
+  "actions": [
+    {
+      "type": "create",
+      "tables": [
+        {
+          "name": "users",
+          "className": "User",
+          "columns": [...],
+          "relationships": [],
+          "joinTable": false
+        }
+      ]
+    }
+  ],
+  "explanation": "Created 4 tables for e-commerce: users, products, orders, and order_items with proper relationships."
+}
+```
+
+### Action Types
+
+The AI can perform four types of schema modifications:
+
+#### 1. CREATE
+Creates new tables. Skips duplicates by name.
+
+```json
+{
+  "type": "create",
+  "tables": [...]
+}
+```
+
+#### 2. EDIT
+Modifies existing tables (updates columns, relationships).
+
+```json
+{
+  "type": "edit",
+  "tables": [...]
+}
+```
+
+#### 3. DELETE
+Removes tables by name. Requires `allowDestructive: true`.
+
+```json
+{
+  "type": "delete",
+  "tableNames": ["old_table", "temp_table"]
+}
+```
+
+#### 4. REPLACE
+Completely replaces the entire schema. Requires `allowDestructive: true`.
+
+```json
+{
+  "type": "replace",
+  "newSchema": [...]
+}
+```
+
+### LLM Agent Configuration
+
+The `AIGeneratedTablesService` configures a specialized LLM agent with detailed instructions:
+
+**Model**: `gemini-2.0-flash`
+
+**Instruction Highlights**:
+- Output **only** valid JSON matching `AIGeneratedTables` structure
+- Never nest action types (use `"type": "create"` not `{"create": {...}}`)
+- Proper relationship detection:
+  - ONE_TO_MANY: sourceTable has many targetTable records
+  - MANY_TO_ONE: many sourceTable records reference one targetTable
+  - MANY_TO_MANY: join table with exactly 2 foreign keys
+- Foreign key constraints:
+  - Set `foreignKey: true`, `referencedTable`, `referencedColumn`
+  - Set `nullable` based on relationship optionality
+- Java type mapping:
+  - VARCHAR/TEXT → String
+  - INT/INTEGER → Integer
+  - BIGINT → Long
+  - DECIMAL → BigDecimal
+  - BOOLEAN → Boolean
+  - DATE → LocalDate
+  - TIMESTAMP → LocalDateTime
+
+### Session Management
+
+Sessions enable **conversation mode** where context is maintained across multiple AI requests:
+
+- **In-memory session storage**: `ConcurrentHashMap<String, List<Table>>`
+- **Session lifecycle**: Created on first request, reused for subsequent requests
+- **Context preservation**: Current schema state is tracked per session
+- **Max tables limit**: 50 tables per session (safety constraint)
+
+### Example Usage
+
+#### Simple Schema Creation
+```bash
+curl -X POST http://localhost:8080/api/ai/generateTables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Create a blog schema with posts, comments, and tags",
+    "currentTables": [],
+    "allowDestructive": false
+  }'
+```
+
+#### Modifying Existing Schema
+```bash
+curl -X POST http://localhost:8080/api/ai/generateTables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Add created_at and updated_at timestamps to all tables",
+    "currentTables": [...existing tables...],
+    "sessionId": "session-abc123",
+    "allowDestructive": false
+  }'
+```
+
+### Error Handling
+
+The service includes comprehensive error handling:
+
+1. **Serialization errors**: JSON parsing failures
+2. **ADK runtime errors**: Agent execution failures
+3. **Invalid JSON**: Attempts to extract JSON from LLM output
+4. **Action validation**: Validates action types and required fields
+5. **Table limits**: Enforces MAX_TABLES constraint
+6. **Fallback messages**: Provides helpful error descriptions
+
+### Integration with Project Generation
+
+AI-generated tables seamlessly integrate with the existing generation workflow:
+
+1. User requests AI generation via frontend
+2. Backend processes with LLM agent
+3. Returns structured `Table[]` objects
+4. Frontend normalizes tables (adds `id`, `position`)
+5. Tables added to visual schema editor
+6. User proceeds to project generation phase
+
+---
+
 ## Contributing
 
 ### Code Style
@@ -760,6 +962,8 @@ mvn versions:display-dependency-updates
 - [Spring Initializr API](https://github.com/spring-io/initializr)
 - [FreeMarker Documentation](https://freemarker.apache.org/docs/)
 - [JPA Relationships Guide](https://www.baeldung.com/jpa-hibernate-associations)
+- [Google Agent Development Kit](https://github.com/google/adk)
+- [Gemini API Documentation](https://ai.google.dev/docs)
 
 ---
 
@@ -773,5 +977,5 @@ For questions or support, contact: [Your contact information]
 
 ---
 
-**Last Updated**: 2025-12-01
-**Version**: 1.0
+**Last Updated**: 2025-12-06
+**Version**: 2.0

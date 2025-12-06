@@ -45,6 +45,8 @@ public class Column {
     /** Indicates if this column has a UNIQUE constraint */
     private boolean unique;
 
+    public Column() {
+    }
     // Getters and Setters with inline documentation
     
     /** @return The database column name */
