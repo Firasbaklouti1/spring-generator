@@ -1,398 +1,18 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
-import { X, Search, Check } from "lucide-react"
+import { X, Search, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { DependencyGroup } from "@/lib/store"
+import type { DependencyGroup, StackType } from "@/lib/store"
 
-const DEPENDENCY_GROUPS: DependencyGroup[] = [
-  {
-    name: "Developer Tools",
-    dependencies: [
-      {
-        id: "devtools",
-        name: "Spring Boot DevTools",
-        description: "Provides fast application restarts, LiveReload, and configurations",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-devtools",
-        scope: "runtime",
-        isStarter: true,
-      },
-      {
-        id: "lombok",
-        name: "Lombok",
-        description: "Java annotation library to reduce boilerplate code",
-        groupId: "org.projectlombok",
-        artifactId: "lombok",
-        scope: "compile",
-        isStarter: false,
-      },
-      {
-        id: "configuration-processor",
-        name: "Spring Configuration Processor",
-        description: "Generate metadata for configuration properties",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-configuration-processor",
-        scope: "compile",
-        isStarter: false,
-      },
-    ],
-  },
-  {
-    name: "Web",
-    dependencies: [
-      {
-        id: "web",
-        name: "Spring Web",
-        description: "Build web applications using Spring MVC with Tomcat",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-web",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "webflux",
-        name: "Spring Reactive Web",
-        description: "Build reactive web applications with Spring WebFlux",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-webflux",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "graphql",
-        name: "Spring for GraphQL",
-        description: "Build GraphQL applications with Spring",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-graphql",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "rest-docs",
-        name: "Spring REST Docs",
-        description: "Document RESTful services by combining hand-written and auto-generated documentation",
-        groupId: "org.springframework.restdocs",
-        artifactId: "spring-restdocs-mockmvc",
-        scope: "test",
-        isStarter: false,
-      },
-      {
-        id: "hateoas",
-        name: "Spring HATEOAS",
-        description: "Eases the creation of RESTful APIs that follow the HATEOAS principle",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-hateoas",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "websocket",
-        name: "WebSocket",
-        description: "Build WebSocket applications with SockJS and STOMP",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-websocket",
-        scope: "compile",
-        isStarter: true,
-      },
-    ],
-  },
-  {
-    name: "Security",
-    dependencies: [
-      {
-        id: "security",
-        name: "Spring Security",
-        description: "Highly customizable authentication and access-control framework",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-security",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "oauth2-client",
-        name: "OAuth2 Client",
-        description: "Spring Boot integration for OAuth2/OpenID Connect clients",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-oauth2-client",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "oauth2-resource-server",
-        name: "OAuth2 Resource Server",
-        description: "Spring Boot integration for OAuth2 Resource Server",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-oauth2-resource-server",
-        scope: "compile",
-        isStarter: true,
-      },
-    ],
-  },
-  {
-    name: "SQL",
-    dependencies: [
-      {
-        id: "jpa",
-        name: "Spring Data JPA",
-        description: "Persist data in SQL stores with Java Persistence API",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-jpa",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "jdbc",
-        name: "Spring Data JDBC",
-        description: "Persist data in SQL stores with plain JDBC",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-jdbc",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "h2",
-        name: "H2 Database",
-        description: "Fast in-memory database that supports JDBC API",
-        groupId: "com.h2database",
-        artifactId: "h2",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "mysql",
-        name: "MySQL Driver",
-        description: "MySQL JDBC driver",
-        groupId: "com.mysql",
-        artifactId: "mysql-connector-j",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "postgresql",
-        name: "PostgreSQL Driver",
-        description: "A JDBC driver for PostgreSQL",
-        groupId: "org.postgresql",
-        artifactId: "postgresql",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "mariadb",
-        name: "MariaDB Driver",
-        description: "MariaDB JDBC driver",
-        groupId: "org.mariadb.jdbc",
-        artifactId: "mariadb-java-client",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "mssql",
-        name: "MS SQL Server Driver",
-        description: "Microsoft SQL Server JDBC driver",
-        groupId: "com.microsoft.sqlserver",
-        artifactId: "mssql-jdbc",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "oracle",
-        name: "Oracle Driver",
-        description: "Oracle JDBC driver",
-        groupId: "com.oracle.database.jdbc",
-        artifactId: "ojdbc11",
-        scope: "runtime",
-        isStarter: false,
-      },
-      {
-        id: "flyway",
-        name: "Flyway Migration",
-        description: "Version control for your database",
-        groupId: "org.flywaydb",
-        artifactId: "flyway-core",
-        scope: "compile",
-        isStarter: false,
-      },
-      {
-        id: "liquibase",
-        name: "Liquibase Migration",
-        description: "Database version control and migration",
-        groupId: "org.liquibase",
-        artifactId: "liquibase-core",
-        scope: "compile",
-        isStarter: false,
-      },
-    ],
-  },
-  {
-    name: "NoSQL",
-    dependencies: [
-      {
-        id: "mongodb",
-        name: "Spring Data MongoDB",
-        description: "Store data in flexible, JSON-like documents",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-mongodb",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "redis",
-        name: "Spring Data Redis",
-        description: "Advanced and thread-safe Java Redis client",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-redis",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "elasticsearch",
-        name: "Spring Data Elasticsearch",
-        description: "Distributed search and analytics engine",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-elasticsearch",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "cassandra",
-        name: "Spring Data Cassandra",
-        description: "Distributed database for high availability",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-data-cassandra",
-        scope: "compile",
-        isStarter: true,
-      },
-    ],
-  },
-  {
-    name: "Messaging",
-    dependencies: [
-      {
-        id: "amqp",
-        name: "Spring for RabbitMQ",
-        description: "Build applications with RabbitMQ",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-amqp",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "kafka",
-        name: "Spring for Apache Kafka",
-        description: "Build applications with Apache Kafka",
-        groupId: "org.springframework.kafka",
-        artifactId: "spring-kafka",
-        scope: "compile",
-        isStarter: false,
-      },
-      {
-        id: "activemq",
-        name: "Spring for ActiveMQ",
-        description: "Build applications with ActiveMQ",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-activemq",
-        scope: "compile",
-        isStarter: true,
-      },
-    ],
-  },
-  {
-    name: "I/O",
-    dependencies: [
-      {
-        id: "validation",
-        name: "Validation",
-        description: "Bean Validation with Hibernate validator",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-validation",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "mail",
-        name: "Java Mail Sender",
-        description: "Send email using Java Mail and Spring",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-mail",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "quartz",
-        name: "Quartz Scheduler",
-        description: "Schedule jobs using Quartz",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-quartz",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "cache",
-        name: "Spring Cache Abstraction",
-        description: "Enable Spring caching support",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-cache",
-        scope: "compile",
-        isStarter: true,
-      },
-    ],
-  },
-  {
-    name: "Ops",
-    dependencies: [
-      {
-        id: "actuator",
-        name: "Spring Boot Actuator",
-        description: "Production ready features to monitor and manage your application",
-        groupId: "org.springframework.boot",
-        artifactId: "spring-boot-starter-actuator",
-        scope: "compile",
-        isStarter: true,
-      },
-      {
-        id: "prometheus",
-        name: "Prometheus",
-        description: "Expose Micrometer metrics in Prometheus format",
-        groupId: "io.micrometer",
-        artifactId: "micrometer-registry-prometheus",
-        scope: "runtime",
-        isStarter: false,
-      },
-    ],
-  },
-  {
-    name: "Testing",
-    dependencies: [
-      {
-        id: "testcontainers",
-        name: "Testcontainers",
-        description: "Provide lightweight throwaway containers for testing",
-        groupId: "org.testcontainers",
-        artifactId: "junit-jupiter",
-        scope: "test",
-        isStarter: false,
-      },
-      {
-        id: "contract-verifier",
-        name: "Contract Verifier",
-        description: "Moves TDD to the level of software architecture",
-        groupId: "org.springframework.cloud",
-        artifactId: "spring-cloud-starter-contract-verifier",
-        scope: "test",
-        isStarter: true,
-      },
-    ],
-  },
-]
 
-// Get category color based on group name
 function getCategoryColor(groupName: string): string {
   const colors: Record<string, string> = {
     "Developer Tools": "bg-emerald-500/20 text-emerald-400",
     Web: "bg-blue-500/20 text-blue-400",
+    "Web Framework": "bg-blue-500/20 text-blue-400",
     Security: "bg-red-500/20 text-red-400",
     SQL: "bg-amber-500/20 text-amber-400",
     NoSQL: "bg-purple-500/20 text-purple-400",
@@ -400,6 +20,12 @@ function getCategoryColor(groupName: string): string {
     "I/O": "bg-cyan-500/20 text-cyan-400",
     Ops: "bg-orange-500/20 text-orange-400",
     Testing: "bg-teal-500/20 text-teal-400",
+    Core: "bg-indigo-500/20 text-indigo-400",
+    Database: "bg-amber-500/20 text-amber-400",
+    Authentication: "bg-red-500/20 text-red-400",
+    Validation: "bg-cyan-500/20 text-cyan-400",
+    "API Documentation": "bg-violet-500/20 text-violet-400",
+    "Background Tasks": "bg-orange-500/20 text-orange-400",
   }
   return colors[groupName] || "bg-gray-500/20 text-gray-400"
 }
@@ -408,26 +34,84 @@ interface DependenciesModalProps {
   selectedDependencies: string[]
   onSelect: (dependencies: string[]) => void
   onClose: () => void
+  stackType?: StackType
 }
 
-export function DependenciesModal({ selectedDependencies, onSelect, onClose }: DependenciesModalProps) {
+export function DependenciesModal({
+  selectedDependencies,
+  onSelect,
+  onClose,
+  stackType = "SPRING",
+}: DependenciesModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [localSelected, setLocalSelected] = useState<string[]>(selectedDependencies)
+  const [dependencyGroups, setDependencyGroups] = useState<DependencyGroup[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch dependency groups from backend
+  useEffect(() => {
+    const fetchDependencyGroups = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await fetch(`http://localhost:8080/api/dependencies/groups?stackType=${stackType}`)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch dependencies: ${response.status}`)
+        }
+
+        const data = await response.json()
+        setDependencyGroups(data)
+      } catch (err) {
+        console.error("Error fetching dependency groups:", err)
+        setError("Failed to load dependencies. Using fallback data.")
+
+        // Fallback to legacy data based on stack type
+        switch (stackType) {
+          case "SPRING":
+            setDependencyGroups(SPRING_DEPENDENCY_GROUPS)
+            break
+          case "NODE":
+            // You would add NODE_DEPENDENCY_GROUPS here
+            setDependencyGroups([])
+            break
+          case "NEST":
+            // You would add NEST_DEPENDENCY_GROUPS here
+            setDependencyGroups([])
+            break
+          case "FASTAPI":
+            // You would add FASTAPI_DEPENDENCY_GROUPS here
+            setDependencyGroups([])
+            break
+          default:
+            setDependencyGroups(SPRING_DEPENDENCY_GROUPS)
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDependencyGroups()
+  }, [stackType])
 
   const filteredGroups = useMemo(() => {
-    if (!searchQuery.trim()) return DEPENDENCY_GROUPS
+    if (!searchQuery.trim()) return dependencyGroups
 
     const query = searchQuery.toLowerCase()
-    return DEPENDENCY_GROUPS.map((group) => ({
-      ...group,
-      dependencies: group.dependencies.filter(
-        (dep) =>
-          dep.name.toLowerCase().includes(query) ||
-          dep.description.toLowerCase().includes(query) ||
-          dep.id.toLowerCase().includes(query),
-      ),
-    })).filter((group) => group.dependencies.length > 0)
-  }, [searchQuery])
+    return dependencyGroups
+      .map((group) => ({
+        ...group,
+        dependencies: group.dependencies.filter(
+          (dep) =>
+            dep.name.toLowerCase().includes(query) ||
+            dep.description.toLowerCase().includes(query) ||
+            dep.id.toLowerCase().includes(query),
+        ),
+      }))
+      .filter((group) => group.dependencies.length > 0)
+  }, [searchQuery, dependencyGroups])
 
   const toggleDependency = (depId: string) => {
     setLocalSelected((prev) => (prev.includes(depId) ? prev.filter((id) => id !== depId) : [...prev, depId]))
@@ -439,6 +123,15 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
   }
 
   const totalSelected = localSelected.length
+
+  const stackName =
+    stackType === "SPRING"
+      ? "Spring Boot"
+      : stackType === "NODE"
+        ? "Node.js"
+        : stackType === "NEST"
+          ? "NestJS"
+          : "FastAPI"
 
   return (
     <motion.div
@@ -457,7 +150,10 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-xl font-bold">Add Dependencies</h2>
+          <div>
+            <h2 className="text-xl font-bold">Add Dependencies</h2>
+            <p className="text-sm text-muted-foreground">{stackName} packages</p>
+          </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary/50 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -473,15 +169,33 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
               placeholder="Search dependencies by name or description..."
               className="pl-10 bg-input/50 border-primary/30 focus:border-primary"
               autoFocus
+              disabled={isLoading}
             />
           </div>
         </div>
 
         {/* Dependencies List */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-          {filteredGroups.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <span className="ml-3 text-muted-foreground">Loading dependencies...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-6">
+              <div className="text-yellow-600 dark:text-yellow-400 mb-2">
+                {error}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing fallback data. Some features may be limited.
+              </div>
+            </div>
+          ) : filteredGroups.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              No dependencies found matching "{searchQuery}"
+              {searchQuery.trim()
+                ? `No dependencies found matching "${searchQuery}"`
+                : "No dependencies available for this stack type"
+              }
             </div>
           ) : (
             filteredGroups.map((group) => (
@@ -499,17 +213,15 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
                       <button
                         key={dep.id}
                         onClick={() => toggleDependency(dep.id)}
-                        className={`w-full flex items-start gap-3 p-4 rounded-xl text-left transition-all ${
-                          isSelected
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-secondary/20 border border-transparent hover:bg-secondary/40"
-                        }`}
+                        className={`w-full flex items-start gap-3 p-4 rounded-xl text-left transition-all ${isSelected
+                          ? "bg-primary/10 border border-primary/30"
+                          : "bg-secondary/20 border border-transparent hover:bg-secondary/40"
+                          }`}
                       >
                         {/* Checkbox */}
                         <div
-                          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-colors ${
-                            isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"
-                          }`}
+                          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-colors ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"
+                            }`}
                         >
                           {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                         </div>
@@ -546,7 +258,8 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
             </Button>
             <Button
               onClick={handleAddSelected}
-              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90"
+              disabled={isLoading}
+              className="bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               Add Selected
             </Button>
@@ -557,4 +270,5 @@ export function DependenciesModal({ selectedDependencies, onSelect, onClose }: D
   )
 }
 
-export { DEPENDENCY_GROUPS }
+// Legacy exports for backward compatibility
+export { SPRING_DEPENDENCY_GROUPS as DEPENDENCY_GROUPS }

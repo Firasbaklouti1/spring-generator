@@ -1,24 +1,38 @@
 package com.firas.generator.model;
 
+import com.firas.generator.model.config.FastAPIConfig;
+import com.firas.generator.model.config.NestConfig;
+import com.firas.generator.model.config.NodeConfig;
+import com.firas.generator.model.config.SpringConfig;
+import com.firas.generator.stack.StackType;
+
 import java.util.List;
 
 /**
- * Represents a request to generate a Spring Boot project.
+ * Represents a request to generate a project for any supported technology stack.
  * 
- * This class encapsulates all the configuration options needed to generate a customized
- * Spring Boot project, including basic project metadata, dependency selections, and
- * advanced code generation options such as automatic CRUD generation from SQL schemas.
+ * This class uses composition to separate common fields from stack-specific configuration:
+ * - Common fields (name, description, packageName, tables, etc.) apply to all stacks
+ * - Stack-specific configuration is encapsulated in dedicated config objects
+ * 
+ * The stackType field determines which technology stack to generate (Spring, Node, etc.).
+ * If not specified, defaults to SPRING for backward compatibility.
+ * 
+ * For backward compatibility, legacy Spring fields (groupId, artifactId, etc.) are still
+ * accepted and automatically merged into springConfig.
  * 
  * @author Firas Baklouti
- * @version 1.0
+ * @version 3.0
  * @since 2025-12-01
  */
 public class ProjectRequest {
-    /** Maven groupId for the generated project (e.g., "com.example") */
-    private String groupId;
     
-    /** Maven artifactId for the generated project (e.g., "demo") */
-    private String artifactId;
+    // ==================== Stack Routing ====================
+    
+    /** Technology stack to generate (defaults to SPRING for backward compatibility) */
+    private StackType stackType = StackType.SPRING;
+    
+    // ==================== Common Fields (All Stacks) ====================
     
     /** Human-readable project name */
     private String name;
@@ -26,30 +40,27 @@ public class ProjectRequest {
     /** Project description */
     private String description;
     
-    /** Base package name for Java classes (e.g., "com.example.demo") */
+    /** Base package/module name (e.g., "com.example.demo" for Java, "my-app" for Node) */
     private String packageName;
     
-    /** Java version to use (e.g., "17", "21") */
-    private String javaVersion;
-    
-    /** Spring Boot version to use (e.g., "3.2.0") */
-    private String bootVersion;
-    
-    /** List of dependencys to include in the project */
+    /** List of dependencies to include in the project */
     private List<DependencyMetadata> dependencies;
     
-    // Advanced features for code generation
+    /** Database tables for CRUD generation */
+    private List<Table> tables;
     
-    /** Flag to include JPA entity classes in generated code */
+    // ==================== Code Generation Flags (All Stacks) ====================
+    
+    /** Flag to include entity/model classes */
     private boolean includeEntity;
     
-    /** Flag to include Spring Data repository interfaces */
+    /** Flag to include repository/data access layer */
     private boolean includeRepository;
     
-    /** Flag to include service layer classes */
+    /** Flag to include service/business logic layer */
     private boolean includeService;
     
-    /** Flag to include REST controller classes */
+    /** Flag to include controller/router layer */
     private boolean includeController;
     
     /** Flag to include DTO (Data Transfer Object) classes */
@@ -58,14 +69,41 @@ public class ProjectRequest {
     /** Flag to include mapper classes for entity-DTO conversion */
     private boolean includeMapper;
     
-    private List<Table>tables;
-
-    public String getGroupId() { return groupId; }
-    public void setGroupId(String groupId) { this.groupId = groupId; }
-
-    public String getArtifactId() { return artifactId; }
-    public void setArtifactId(String artifactId) { this.artifactId = artifactId; }
-
+    // ==================== Stack-Specific Configurations ====================
+    
+    /** Spring Boot specific configuration */
+    private SpringConfig springConfig;
+    
+    /** Node.js/Express specific configuration */
+    private NodeConfig nodeConfig;
+    
+    /** NestJS specific configuration */
+    private NestConfig nestConfig;
+    
+    /** FastAPI/Python specific configuration */
+    private FastAPIConfig fastapiConfig;
+    
+    // ==================== Legacy Fields (Backward Compatibility) ====================
+    // These fields are kept for backward compatibility with existing frontend
+    // They map to springConfig fields
+    
+    /** @deprecated Use springConfig.groupId instead */
+    private String groupId;
+    
+    /** @deprecated Use springConfig.artifactId instead */
+    private String artifactId;
+    
+    /** @deprecated Use springConfig.javaVersion instead */
+    private String javaVersion;
+    
+    /** @deprecated Use springConfig.bootVersion instead */
+    private String bootVersion;
+    
+    // ==================== Getters and Setters ====================
+    
+    public StackType getStackType() { return stackType; }
+    public void setStackType(StackType stackType) { this.stackType = stackType; }
+    
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
@@ -75,20 +113,12 @@ public class ProjectRequest {
     public String getPackageName() { return packageName; }
     public void setPackageName(String packageName) { this.packageName = packageName; }
 
-    public String getJavaVersion() { return javaVersion; }
-    public void setJavaVersion(String javaVersion) { this.javaVersion = javaVersion; }
+    public List<DependencyMetadata> getDependencies() { return dependencies; }
+    public void setDependencies(List<DependencyMetadata> dependencies) { this.dependencies = dependencies; }
 
-    public String getBootVersion() { return bootVersion; }
-    public void setBootVersion(String bootVersion) { this.bootVersion = bootVersion; }
-
-    public List<DependencyMetadata> getDependencies() {
-        return dependencies;
-    }
-
-    public void setDependencies(List<DependencyMetadata> dependencies) {
-        this.dependencies = dependencies;
-    }
-
+    public List<Table> getTables() { return tables; }
+    public void setTables(List<Table> tables) { this.tables = tables; }
+    
     public boolean isIncludeEntity() { return includeEntity; }
     public void setIncludeEntity(boolean includeEntity) { this.includeEntity = includeEntity; }
 
@@ -106,12 +136,90 @@ public class ProjectRequest {
 
     public boolean isIncludeMapper() { return includeMapper; }
     public void setIncludeMapper(boolean includeMapper) { this.includeMapper = includeMapper; }
-
-    public List<Table> getTables() {
-        return tables;
+    
+    // Stack-specific config getters/setters
+    
+    public SpringConfig getSpringConfig() { return springConfig; }
+    public void setSpringConfig(SpringConfig springConfig) { this.springConfig = springConfig; }
+    
+    public NodeConfig getNodeConfig() { return nodeConfig; }
+    public void setNodeConfig(NodeConfig nodeConfig) { this.nodeConfig = nodeConfig; }
+    
+    public NestConfig getNestConfig() { return nestConfig; }
+    public void setNestConfig(NestConfig nestConfig) { this.nestConfig = nestConfig; }
+    
+    public FastAPIConfig getFastapiConfig() { return fastapiConfig; }
+    public void setFastapiConfig(FastAPIConfig fastapiConfig) { this.fastapiConfig = fastapiConfig; }
+    
+    // ==================== Legacy Field Getters (Backward Compatibility) ====================
+    
+    /**
+     * Gets the groupId, checking both legacy field and springConfig.
+     * @deprecated Use getSpringConfig().getGroupId() instead
+     */
+    public String getGroupId() { 
+        if (groupId != null) return groupId;
+        return springConfig != null ? springConfig.getGroupId() : null;
     }
-
-    public void setTables(List<Table> tables) {
-        this.tables = tables;
+    public void setGroupId(String groupId) { this.groupId = groupId; }
+    
+    /**
+     * Gets the artifactId, checking both legacy field and springConfig.
+     * @deprecated Use getSpringConfig().getArtifactId() instead
+     */
+    public String getArtifactId() { 
+        if (artifactId != null) return artifactId;
+        return springConfig != null ? springConfig.getArtifactId() : null;
+    }
+    public void setArtifactId(String artifactId) { this.artifactId = artifactId; }
+    
+    /**
+     * Gets the javaVersion, checking both legacy field and springConfig.
+     * @deprecated Use getSpringConfig().getJavaVersion() instead
+     */
+    public String getJavaVersion() { 
+        if (javaVersion != null) return javaVersion;
+        return springConfig != null ? springConfig.getJavaVersion() : "17";
+    }
+    public void setJavaVersion(String javaVersion) { this.javaVersion = javaVersion; }
+    
+    /**
+     * Gets the bootVersion, checking both legacy field and springConfig.
+     * @deprecated Use getSpringConfig().getBootVersion() instead
+     */
+    public String getBootVersion() { 
+        if (bootVersion != null) return bootVersion;
+        return springConfig != null ? springConfig.getBootVersion() : "3.2.0";
+    }
+    public void setBootVersion(String bootVersion) { this.bootVersion = bootVersion; }
+    
+    // ==================== Helper Methods ====================
+    
+    /**
+     * Gets or creates the SpringConfig, merging legacy fields if present.
+     * Useful for Spring provider to get a complete config object.
+     */
+    public SpringConfig getEffectiveSpringConfig() {
+        SpringConfig config = springConfig != null ? springConfig : new SpringConfig();
+        
+        // Merge legacy fields if present
+        if (groupId != null) config.setGroupId(groupId);
+        if (artifactId != null) config.setArtifactId(artifactId);
+        if (javaVersion != null) config.setJavaVersion(javaVersion);
+        if (bootVersion != null) config.setBootVersion(bootVersion);
+        
+        return config;
+    }
+    
+    /**
+     * Gets or creates the appropriate config for the current stack type.
+     */
+    public Object getEffectiveConfig() {
+        return switch (stackType) {
+            case SPRING -> getEffectiveSpringConfig();
+            case NODE -> nodeConfig != null ? nodeConfig : new NodeConfig();
+            case NEST -> nestConfig != null ? nestConfig : new NestConfig();
+            case FASTAPI -> fastapiConfig != null ? fastapiConfig : new FastAPIConfig();
+        };
     }
 }

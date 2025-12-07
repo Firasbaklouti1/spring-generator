@@ -20,13 +20,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useGeneratorStore, type DependencyGroup } from "@/lib/store"
+import { Switch } from "@/components/ui/switch"
+import { useGeneratorStore } from "@/lib/store"
 import { DependenciesModal, DEPENDENCY_GROUPS } from "./dependencies-modal"
 import { CodePreviewModal } from "./code-preview-modal"
+import { StackSelector } from "./stack-selector"
 import { toast } from "sonner"
 
 const javaVersions = ["17", "21"]
 const bootVersions = ["3.2.0", "3.1.5", "3.0.12"]
+const nodeVersions = ["18", "20", "22"]
+const pythonVersions = ["3.9", "3.10", "3.11", "3.12"]
 
 const getDependencyInfo = (id: string) => {
   for (const group of DEPENDENCY_GROUPS) {
@@ -56,12 +60,16 @@ export function ProjectConfigPhase() {
     tables,
     projectConfig,
     setProjectConfig,
+    setSpringConfig,
+    setNodeConfig,
+    setNestConfig,
+    setFastAPIConfig,
     setCurrentPhase,
     isGenerating,
     setIsGenerating,
     reset,
     setPreviewFiles,
-    previewFiles
+    previewFiles,
   } = useGeneratorStore()
   const [showSuccess, setShowSuccess] = useState(false)
   const [showDependenciesModal, setShowDependenciesModal] = useState(false)
@@ -69,6 +77,7 @@ export function ProjectConfigPhase() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
 
   const selectedDependencyIds = projectConfig.dependencies
+  const selectedStack = projectConfig.stackType
 
   const handleDependenciesSelect = (depIds: string[]) => {
     setProjectConfig({ dependencies: depIds })
@@ -80,13 +89,11 @@ export function ProjectConfigPhase() {
   }
 
   const getProjectPayload = () => {
-    // Convert dependency IDs to full Dependency objects
     const fullDependencies = selectedDependencyIds.map((depId) => {
       for (const group of DEPENDENCY_GROUPS) {
         const dep = group.dependencies.find((d) => d.id === depId)
         if (dep) return dep
       }
-      // Fallback if dependency not found
       return {
         id: depId,
         name: depId,
@@ -98,14 +105,11 @@ export function ProjectConfigPhase() {
       }
     })
 
-    return {
-      groupId: projectConfig.groupId,
-      artifactId: projectConfig.artifactId,
+    const basePayload = {
+      stackType: projectConfig.stackType,
       name: projectConfig.name,
       description: projectConfig.description,
       packageName: projectConfig.packageName,
-      javaVersion: projectConfig.javaVersion,
-      bootVersion: projectConfig.bootVersion,
       dependencies: fullDependencies,
       includeEntity: projectConfig.includeEntity,
       includeRepository: projectConfig.includeRepository,
@@ -144,6 +148,28 @@ export function ProjectConfigPhase() {
         isJoinTable: table.isJoinTable,
       })),
     }
+
+    // Add stack-specific config
+    switch (projectConfig.stackType) {
+      case "SPRING":
+        return {
+          ...basePayload,
+          springConfig: projectConfig.springConfig,
+          // Legacy fields for backward compatibility
+          groupId: projectConfig.springConfig.groupId,
+          artifactId: projectConfig.springConfig.artifactId,
+          javaVersion: projectConfig.springConfig.javaVersion,
+          bootVersion: projectConfig.springConfig.bootVersion,
+        }
+      case "NODE":
+        return { ...basePayload, nodeConfig: projectConfig.nodeConfig }
+      case "NEST":
+        return { ...basePayload, nestConfig: projectConfig.nestConfig }
+      case "FASTAPI":
+        return { ...basePayload, fastapiConfig: projectConfig.fastapiConfig }
+      default:
+        return basePayload
+    }
   }
 
   const handlePreview = async () => {
@@ -176,7 +202,10 @@ export function ProjectConfigPhase() {
     try {
       const payload = {
         files: previewFiles,
-        artifactId: projectConfig.artifactId
+        artifactId:
+          projectConfig.stackType === "SPRING"
+            ? projectConfig.springConfig.artifactId
+            : projectConfig.name.toLowerCase().replace(/\s+/g, "-"),
       }
 
       const response = await fetch("http://localhost:8080/api/generate/from-files", {
@@ -190,7 +219,7 @@ export function ProjectConfigPhase() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `${projectConfig.artifactId}.zip`
+        a.download = `${payload.artifactId}.zip`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -233,7 +262,11 @@ export function ProjectConfigPhase() {
           const url = window.URL.createObjectURL(blob)
           const a = document.createElement("a")
           a.href = url
-          a.download = `${projectConfig.artifactId}.zip`
+          const artifactId =
+            projectConfig.stackType === "SPRING"
+              ? projectConfig.springConfig.artifactId
+              : projectConfig.name.toLowerCase().replace(/\s+/g, "-")
+          a.download = `${artifactId}.zip`
           document.body.appendChild(a)
           a.click()
           window.URL.revokeObjectURL(url)
@@ -247,15 +280,51 @@ export function ProjectConfigPhase() {
       } catch {
         console.log("Using mock project generation")
 
+        const stackName =
+          selectedStack === "SPRING"
+            ? "Spring Boot"
+            : selectedStack === "NODE"
+              ? "Node.js"
+              : selectedStack === "NEST"
+                ? "NestJS"
+                : "FastAPI"
+
         const mockContent = `
 # ${projectConfig.name}
 
+## Technology Stack: ${stackName}
+
 ## Project Configuration
-- Group ID: ${projectConfig.groupId}
-- Artifact ID: ${projectConfig.artifactId}
 - Package: ${projectConfig.packageName}
-- Java Version: ${projectConfig.javaVersion}
-- Spring Boot: ${projectConfig.bootVersion}
+${selectedStack === "SPRING"
+            ? `- Group ID: ${projectConfig.springConfig.groupId}
+- Artifact ID: ${projectConfig.springConfig.artifactId}
+- Java Version: ${projectConfig.springConfig.javaVersion}
+- Spring Boot: ${projectConfig.springConfig.bootVersion}
+- Build Tool: ${projectConfig.springConfig.buildTool}`
+            : ""
+          }
+${selectedStack === "NODE"
+            ? `- Node Version: ${projectConfig.nodeConfig.nodeVersion}
+- Package Manager: ${projectConfig.nodeConfig.packageManager}
+- TypeScript: ${projectConfig.nodeConfig.useTypeScript ? "Yes" : "No"}
+- ORM: ${projectConfig.nodeConfig.orm}`
+            : ""
+          }
+${selectedStack === "NEST"
+            ? `- Node Version: ${projectConfig.nestConfig.nodeVersion}
+- Package Manager: ${projectConfig.nestConfig.packageManager}
+- ORM: ${projectConfig.nestConfig.orm}
+- Swagger: ${projectConfig.nestConfig.useSwagger ? "Yes" : "No"}`
+            : ""
+          }
+${selectedStack === "FASTAPI"
+            ? `- Python Version: ${projectConfig.fastapiConfig.pythonVersion}
+- Package Manager: ${projectConfig.fastapiConfig.packageManager}
+- ORM: ${projectConfig.fastapiConfig.orm}
+- Async: ${projectConfig.fastapiConfig.useAsync ? "Yes" : "No"}`
+            : ""
+          }
 
 ## Dependencies
 ${selectedDependencyIds.map((d) => `- ${getDependencyInfo(d)?.name || d}`).join("\n")}
@@ -279,7 +348,11 @@ Generated by Spring Generator
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `${projectConfig.artifactId}-spec.txt`
+        const artifactId =
+          selectedStack === "SPRING"
+            ? projectConfig.springConfig.artifactId
+            : projectConfig.name.toLowerCase().replace(/\s+/g, "-")
+        a.download = `${artifactId}-spec.txt`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -326,13 +399,24 @@ Generated by Spring Generator
           </h1>
 
           <p className="text-muted-foreground mb-8">
-            Your Spring Boot project has been generated and downloaded. Import it into your favorite IDE and start
-            coding!
+            Your{" "}
+            {selectedStack === "SPRING"
+              ? "Spring Boot"
+              : selectedStack === "NODE"
+                ? "Node.js"
+                : selectedStack === "NEST"
+                  ? "NestJS"
+                  : "FastAPI"}{" "}
+            project has been generated and downloaded. Import it into your favorite IDE and start coding!
           </p>
 
           <div className="glass rounded-xl p-6 mb-8 text-left">
             <h3 className="font-semibold mb-3">Project Summary</h3>
             <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Stack:</span>
+                <span className="font-mono">{selectedStack}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Package:</span>
                 <span className="font-mono">{projectConfig.packageName}</span>
@@ -368,11 +452,20 @@ Generated by Spring Generator
             <Rocket className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">Configure Your Project</h1>
-          <p className="text-muted-foreground">Set up your Spring Boot project metadata and dependencies</p>
+          <p className="text-muted-foreground">Select your technology stack and configure project settings</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="glass rounded-2xl p-6 mb-8"
+        >
+          <StackSelector />
         </motion.div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Project Metadata */}
+          {/* Project Metadata - Dynamic based on stack */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -385,33 +478,7 @@ Generated by Spring Generator
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="groupId" className="text-sm mb-1 block">
-                    Group ID
-                  </Label>
-                  <Input
-                    id="groupId"
-                    value={projectConfig.groupId}
-                    onChange={(e) => setProjectConfig({ groupId: e.target.value })}
-                    placeholder="com.example"
-                    className="bg-input/50"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="artifactId" className="text-sm mb-1 block">
-                    Artifact ID
-                  </Label>
-                  <Input
-                    id="artifactId"
-                    value={projectConfig.artifactId}
-                    onChange={(e) => setProjectConfig({ artifactId: e.target.value })}
-                    placeholder="demo"
-                    className="bg-input/50"
-                  />
-                </div>
-              </div>
-
+              {/* Common fields */}
               <div>
                 <Label htmlFor="name" className="text-sm mb-1 block">
                   Name
@@ -433,7 +500,7 @@ Generated by Spring Generator
                   id="description"
                   value={projectConfig.description}
                   onChange={(e) => setProjectConfig({ description: e.target.value })}
-                  placeholder="Demo project for Spring Boot"
+                  placeholder="Project description"
                   rows={2}
                   className="bg-input/50 resize-none"
                 />
@@ -447,53 +514,338 @@ Generated by Spring Generator
                   id="packageName"
                   value={projectConfig.packageName}
                   onChange={(e) => setProjectConfig({ packageName: e.target.value })}
-                  placeholder="com.example.demo"
+                  placeholder={selectedStack === "SPRING" ? "com.example.demo" : "my-project"}
                   className="bg-input/50"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm mb-1 block">Java Version</Label>
-                  <Select
-                    value={projectConfig.javaVersion}
-                    onValueChange={(value) => setProjectConfig({ javaVersion: value })}
-                  >
-                    <SelectTrigger className="bg-input/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {javaVersions.map((v) => (
-                        <SelectItem key={v} value={v}>
-                          Java {v}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm mb-1 block">Spring Boot Version</Label>
-                  <Select
-                    value={projectConfig.bootVersion}
-                    onValueChange={(value) => setProjectConfig({ bootVersion: value })}
-                  >
-                    <SelectTrigger className="bg-input/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bootVersions.map((v) => (
-                        <SelectItem key={v} value={v}>
-                          {v}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {selectedStack === "SPRING" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="groupId" className="text-sm mb-1 block">
+                        Group ID
+                      </Label>
+                      <Input
+                        id="groupId"
+                        value={projectConfig.springConfig.groupId}
+                        onChange={(e) => setSpringConfig({ groupId: e.target.value })}
+                        placeholder="com.example"
+                        className="bg-input/50"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="artifactId" className="text-sm mb-1 block">
+                        Artifact ID
+                      </Label>
+                      <Input
+                        id="artifactId"
+                        value={projectConfig.springConfig.artifactId}
+                        onChange={(e) => setSpringConfig({ artifactId: e.target.value })}
+                        placeholder="demo"
+                        className="bg-input/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">Java Version</Label>
+                      <Select
+                        value={projectConfig.springConfig.javaVersion}
+                        onValueChange={(value) => setSpringConfig({ javaVersion: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {javaVersions.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              Java {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm mb-1 block">Spring Boot Version</Label>
+                      <Select
+                        value={projectConfig.springConfig.bootVersion}
+                        onValueChange={(value) => setSpringConfig({ bootVersion: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bootVersions.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">Build Tool</Label>
+                      <Select
+                        value={projectConfig.springConfig.buildTool}
+                        onValueChange={(value: "maven" | "gradle") => setSpringConfig({ buildTool: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="maven">Maven</SelectItem>
+                          <SelectItem value="gradle">Gradle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm mb-1 block">Packaging</Label>
+                      <Select
+                        value={projectConfig.springConfig.packaging}
+                        onValueChange={(value: "jar" | "war") => setSpringConfig({ packaging: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="jar">JAR</SelectItem>
+                          <SelectItem value="war">WAR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedStack === "NODE" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">Node.js Version</Label>
+                      <Select
+                        value={projectConfig.nodeConfig.nodeVersion}
+                        onValueChange={(value) => setNodeConfig({ nodeVersion: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodeVersions.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              Node {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm mb-1 block">Package Manager</Label>
+                      <Select
+                        value={projectConfig.nodeConfig.packageManager}
+                        onValueChange={(value: "npm" | "yarn" | "pnpm") => setNodeConfig({ packageManager: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="npm">npm</SelectItem>
+                          <SelectItem value="yarn">Yarn</SelectItem>
+                          <SelectItem value="pnpm">pnpm</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">ORM</Label>
+                      <Select
+                        value={projectConfig.nodeConfig.orm}
+                        onValueChange={(value: "prisma" | "sequelize" | "typeorm") => setNodeConfig({ orm: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="prisma">Prisma</SelectItem>
+                          <SelectItem value="sequelize">Sequelize</SelectItem>
+                          <SelectItem value="typeorm">TypeORM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <Label className="text-sm">Use TypeScript</Label>
+                      <Switch
+                        checked={projectConfig.nodeConfig.useTypeScript}
+                        onCheckedChange={(checked) => setNodeConfig({ useTypeScript: checked })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedStack === "NEST" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">Node.js Version</Label>
+                      <Select
+                        value={projectConfig.nestConfig.nodeVersion}
+                        onValueChange={(value) => setNestConfig({ nodeVersion: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nodeVersions.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              Node {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm mb-1 block">Package Manager</Label>
+                      <Select
+                        value={projectConfig.nestConfig.packageManager}
+                        onValueChange={(value: "npm" | "yarn" | "pnpm") => setNestConfig({ packageManager: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="npm">npm</SelectItem>
+                          <SelectItem value="yarn">Yarn</SelectItem>
+                          <SelectItem value="pnpm">pnpm</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm mb-1 block">ORM</Label>
+                    <Select
+                      value={projectConfig.nestConfig.orm}
+                      onValueChange={(value: "typeorm" | "prisma" | "mikro-orm") => setNestConfig({ orm: value })}
+                    >
+                      <SelectTrigger className="bg-input/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="typeorm">TypeORM</SelectItem>
+                        <SelectItem value="prisma">Prisma</SelectItem>
+                        <SelectItem value="mikro-orm">MikroORM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <Label className="text-sm">Swagger Docs</Label>
+                      <Switch
+                        checked={projectConfig.nestConfig.useSwagger}
+                        onCheckedChange={(checked) => setNestConfig({ useSwagger: checked })}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <Label className="text-sm">Validation</Label>
+                      <Switch
+                        checked={projectConfig.nestConfig.useValidation}
+                        onCheckedChange={(checked) => setNestConfig({ useValidation: checked })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedStack === "FASTAPI" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm mb-1 block">Python Version</Label>
+                      <Select
+                        value={projectConfig.fastapiConfig.pythonVersion}
+                        onValueChange={(value) => setFastAPIConfig({ pythonVersion: value })}
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pythonVersions.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              Python {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm mb-1 block">Package Manager</Label>
+                      <Select
+                        value={projectConfig.fastapiConfig.packageManager}
+                        onValueChange={(value: "pip" | "poetry" | "pipenv") =>
+                          setFastAPIConfig({ packageManager: value })
+                        }
+                      >
+                        <SelectTrigger className="bg-input/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pip">pip</SelectItem>
+                          <SelectItem value="poetry">Poetry</SelectItem>
+                          <SelectItem value="pipenv">Pipenv</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm mb-1 block">ORM</Label>
+                    <Select
+                      value={projectConfig.fastapiConfig.orm}
+                      onValueChange={(value: "sqlalchemy" | "tortoise" | "sqlmodel") =>
+                        setFastAPIConfig({ orm: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-input/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sqlalchemy">SQLAlchemy</SelectItem>
+                        <SelectItem value="tortoise">Tortoise ORM</SelectItem>
+                        <SelectItem value="sqlmodel">SQLModel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <Label className="text-sm">Async Mode</Label>
+                      <Switch
+                        checked={projectConfig.fastapiConfig.useAsync}
+                        onCheckedChange={(checked) => setFastAPIConfig({ useAsync: checked })}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <Label className="text-sm">Alembic Migrations</Label>
+                      <Switch
+                        checked={projectConfig.fastapiConfig.useAlembic}
+                        onCheckedChange={(checked) => setFastAPIConfig({ useAlembic: checked })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
 
-          {/* Dependencies - Redesigned */}
+          {/* Dependencies */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -567,7 +919,11 @@ Generated by Spring Generator
             <h2 className="text-lg font-semibold">Generation Summary</h2>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid sm:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 rounded-xl bg-secondary/30">
+              <div className="text-2xl font-bold gradient-text">{selectedStack}</div>
+              <div className="text-sm text-muted-foreground">Stack</div>
+            </div>
             <div className="text-center p-4 rounded-xl bg-secondary/30">
               <div className="text-2xl font-bold gradient-text">{tables.length}</div>
               <div className="text-sm text-muted-foreground">Entities</div>
@@ -650,6 +1006,7 @@ Generated by Spring Generator
             selectedDependencies={selectedDependencyIds}
             onSelect={handleDependenciesSelect}
             onClose={() => setShowDependenciesModal(false)}
+            stackType={selectedStack}
           />
         )}
       </AnimatePresence>

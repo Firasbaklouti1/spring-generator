@@ -1,40 +1,37 @@
-package com.firas.generator.service;
+package com.firas.generator.stack.spring;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.firas.generator.model.DependencyGroup;
 import com.firas.generator.model.DependencyMetadata;
-import org.springframework.stereotype.Service;
-
+import com.firas.generator.stack.DependencyProvider;
 import jakarta.annotation.PostConstruct;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Service for managing and providing Spring Boot dependency metadata.
+ * Dependency provider for Spring Boot.
  * 
- * This service fetches available Spring Boot dependencies dynamically from the
- * Spring Initializr API (https://start.spring.io) and organizes them into logical
- * groups. It provides methods to retrieve all dependency groups and resolve
- * specific dependencies by their IDs.
- * 
- * The dependency data is loaded once at application startup via the @PostConstruct
- * initialization method.
+ * Wraps the existing DependencyRegistry which fetches dependencies
+ * from the Spring Initializr API (start.spring.io).
  * 
  * @author Firas Baklouti
  * @version 1.0
- * @since 2025-12-01
+ * @since 2025-12-07
  */
-@Service
-public class DependencyRegistry {
+@Component
+public class SpringDependencyProvider implements DependencyProvider {
 
     /** WebClient for making HTTP requests to Spring Initializr API */
     private final WebClient webClient = WebClient.create("https://start.spring.io");
-    
+
     /** Map of dependency ID to dependency metadata for quick lookup */
     private final Map<String, DependencyMetadata> dependencyMap = new HashMap<>();
-    
+
     /** List of all dependency groups */
     private final List<DependencyGroup> groups = new ArrayList<>();
 
@@ -79,11 +76,11 @@ public class DependencyRegistry {
 
     /**
      * Fetches dependencies from Spring Initializr API dynamically.
-     * 
+     *
      * This method makes an HTTP request to the Spring Initializr metadata endpoint
      * to retrieve the latest available dependencies and their metadata. The dependencies
      * are organized into groups and stored in memory for quick access.
-     * 
+     *
      * @throws RuntimeException if the API request fails or returns invalid data
      */
     private void initializeDynamicDependencies() {
@@ -129,7 +126,7 @@ public class DependencyRegistry {
 
     /**
      * Creates a DependencyMetadata object with the specified parameters.
-     * 
+     *
      * @param id Unique identifier for the dependency
      * @param name Human-readable name
      * @param description Description of the dependency
@@ -154,7 +151,7 @@ public class DependencyRegistry {
 
     /**
      * Retrieves all dependency groups.
-     * 
+     *
      * @return List of all dependency groups with their associated dependencies
      */
     public List<DependencyGroup> getAllGroups() {
@@ -163,12 +160,24 @@ public class DependencyRegistry {
 
     /**
      * Retrieves a specific dependency by its ID.
-     * 
+     *
      * @param id The unique identifier of the dependency
      * @return The DependencyMetadata object, or null if not found
      */
     public DependencyMetadata getDependencyById(String id) {
         return dependencyMap.get(id);
+    }
+
+    @Override
+    public boolean isInitialized() {
+        // Check if dependency registry has loaded groups
+        List<DependencyGroup> groups = getAllGroups();
+        return groups != null && !groups.isEmpty();
+    }
+
+    @Override
+    public void refresh() {
+        initialize();
     }
 
 }

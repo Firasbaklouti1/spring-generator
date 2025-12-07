@@ -1,24 +1,24 @@
 package com.firas.generator.controller;
 
 import com.firas.generator.model.DependencyGroup;
-import com.firas.generator.service.DependencyRegistry;
+import com.firas.generator.stack.StackProviderFactory;
+import com.firas.generator.stack.StackType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * REST Controller for managing Spring Boot dependencies.
+ * REST Controller for managing dependencies for all technology stacks.
  * 
- * This controller provides endpoints to retrieve available Spring Boot dependencies
- * grouped by categories (e.g., Web, Security, Database, etc.). The dependencies are
- * fetched dynamically from the Spring Initializr API.
+ * This controller provides endpoints to retrieve available dependencies
+ * grouped by categories. It supports multiple stacks (Spring, Node, etc.)
+ * via the optional stackType parameter.
+ * 
+ * For backward compatibility, if no stackType is specified, it defaults to SPRING.
  * 
  * @author Firas Baklouti
- * @version 1.0
+ * @version 2.0
  * @since 2025-12-01
  */
 @RestController
@@ -28,21 +28,26 @@ import java.util.List;
 public class DependencyController {
 
     /**
-     * Service for managing and retrieving dependency metadata
+     * Factory for retrieving stack-specific providers
      */
-    private final DependencyRegistry dependencyRegistry;
+    private final StackProviderFactory stackProviderFactory;
 
     /**
-     * Retrieves all available dependency groups with their associated dependencies.
+     * Retrieves all available dependency groups for the specified stack.
      * 
      * Each group contains related dependencies (e.g., all web-related dependencies
      * are grouped together). This endpoint is typically used to populate dependency
      * selection UI in the frontend.
      * 
+     * @param stackType The technology stack (defaults to SPRING for backward compatibility)
      * @return List of dependency groups, each containing multiple dependencies
      */
     @GetMapping("/groups")
-    public List<DependencyGroup> getDependencyGroups() {
-        return dependencyRegistry.getAllGroups();
+    public List<DependencyGroup> getDependencyGroups(
+            @RequestParam(required = false, defaultValue = "SPRING") StackType stackType) {
+        return stackProviderFactory.getProvider(stackType)
+                .getDependencyProvider()
+                .getAllGroups();
     }
 }
+

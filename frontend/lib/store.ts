@@ -1,5 +1,54 @@
 import { create } from "zustand"
 
+export type StackType = "SPRING" | "NODE" | "NEST" | "FASTAPI"
+
+export interface StackInfo {
+  id: StackType
+  displayName: string
+  language: string
+  defaultVersion: string
+  icon: string
+}
+
+export const AVAILABLE_STACKS: StackInfo[] = [
+  { id: "SPRING", displayName: "Spring Boot", language: "java", defaultVersion: "17", icon: "🍃" },
+  { id: "NODE", displayName: "Node.js", language: "javascript", defaultVersion: "20", icon: "🟢" },
+  { id: "NEST", displayName: "NestJS", language: "typescript", defaultVersion: "20", icon: "🐱" },
+  { id: "FASTAPI", displayName: "FastAPI", language: "python", defaultVersion: "3.11", icon: "⚡" },
+]
+
+export interface SpringConfig {
+  groupId: string
+  artifactId: string
+  javaVersion: string
+  bootVersion: string
+  buildTool: "maven" | "gradle"
+  packaging: "jar" | "war"
+}
+
+export interface NodeConfig {
+  nodeVersion: string
+  packageManager: "npm" | "yarn" | "pnpm"
+  useTypeScript: boolean
+  orm: "prisma" | "sequelize" | "typeorm"
+}
+
+export interface NestConfig {
+  nodeVersion: string
+  packageManager: "npm" | "yarn" | "pnpm"
+  orm: "typeorm" | "prisma" | "mikro-orm"
+  useSwagger: boolean
+  useValidation: boolean
+}
+
+export interface FastAPIConfig {
+  pythonVersion: string
+  packageManager: "pip" | "poetry" | "pipenv"
+  orm: "sqlalchemy" | "tortoise" | "sqlmodel"
+  useAsync: boolean
+  useAlembic: boolean
+}
+
 // Type definitions for the data contracts
 export interface Column {
   name: string
@@ -59,14 +108,14 @@ export interface DependencyGroup {
 }
 
 export interface ProjectConfig {
-  groupId: string
-  artifactId: string
+  // Stack selection
+  stackType: StackType
+
+  // Common fields (all stacks)
   name: string
   description: string
   packageName: string
-  javaVersion: string
-  bootVersion: string
-  dependencies: string[] // Store dependency IDs, convert to full objects when sending to API
+  dependencies: string[] // Store dependency IDs
 
   // Advanced features for code generation
   includeEntity: boolean
@@ -75,6 +124,12 @@ export interface ProjectConfig {
   includeController: boolean
   includeDto: boolean
   includeMapper: boolean
+
+  // Stack-specific configs
+  springConfig: SpringConfig
+  nodeConfig: NodeConfig
+  nestConfig: NestConfig
+  fastapiConfig: FastAPIConfig
 }
 
 export interface FilePreview {
@@ -109,6 +164,10 @@ interface GeneratorStore {
   // Project configuration
   projectConfig: ProjectConfig
   setProjectConfig: (config: Partial<ProjectConfig>) => void
+  setSpringConfig: (config: Partial<SpringConfig>) => void
+  setNodeConfig: (config: Partial<NodeConfig>) => void
+  setNestConfig: (config: Partial<NestConfig>) => void
+  setFastAPIConfig: (config: Partial<FastAPIConfig>) => void
 
   // Preview files
   previewFiles: FilePreview[]
@@ -125,14 +184,43 @@ interface GeneratorStore {
   reset: () => void
 }
 
-const defaultProjectConfig: ProjectConfig = {
+const defaultSpringConfig: SpringConfig = {
   groupId: "com.example",
   artifactId: "demo",
-  name: "Demo",
-  description: "Demo project for Spring Boot",
-  packageName: "com.example.demo",
   javaVersion: "17",
   bootVersion: "3.2.0",
+  buildTool: "maven",
+  packaging: "jar",
+}
+
+const defaultNodeConfig: NodeConfig = {
+  nodeVersion: "20",
+  packageManager: "npm",
+  useTypeScript: true,
+  orm: "prisma",
+}
+
+const defaultNestConfig: NestConfig = {
+  nodeVersion: "20",
+  packageManager: "npm",
+  orm: "typeorm",
+  useSwagger: true,
+  useValidation: true,
+}
+
+const defaultFastAPIConfig: FastAPIConfig = {
+  pythonVersion: "3.11",
+  packageManager: "poetry",
+  orm: "sqlalchemy",
+  useAsync: true,
+  useAlembic: true,
+}
+
+const defaultProjectConfig: ProjectConfig = {
+  stackType: "SPRING",
+  name: "Demo",
+  description: "Demo project",
+  packageName: "com.example.demo",
   dependencies: [],
   includeEntity: true,
   includeRepository: true,
@@ -140,6 +228,10 @@ const defaultProjectConfig: ProjectConfig = {
   includeController: true,
   includeDto: false,
   includeMapper: false,
+  springConfig: defaultSpringConfig,
+  nodeConfig: defaultNodeConfig,
+  nestConfig: defaultNestConfig,
+  fastapiConfig: defaultFastAPIConfig,
 }
 
 export const useGeneratorStore = create<GeneratorStore>((set, get) => ({
@@ -202,6 +294,34 @@ export const useGeneratorStore = create<GeneratorStore>((set, get) => ({
   setProjectConfig: (config) =>
     set((state) => ({
       projectConfig: { ...state.projectConfig, ...config },
+    })),
+  setSpringConfig: (config) =>
+    set((state) => ({
+      projectConfig: {
+        ...state.projectConfig,
+        springConfig: { ...state.projectConfig.springConfig, ...config },
+      },
+    })),
+  setNodeConfig: (config) =>
+    set((state) => ({
+      projectConfig: {
+        ...state.projectConfig,
+        nodeConfig: { ...state.projectConfig.nodeConfig, ...config },
+      },
+    })),
+  setNestConfig: (config) =>
+    set((state) => ({
+      projectConfig: {
+        ...state.projectConfig,
+        nestConfig: { ...state.projectConfig.nestConfig, ...config },
+      },
+    })),
+  setFastAPIConfig: (config) =>
+    set((state) => ({
+      projectConfig: {
+        ...state.projectConfig,
+        fastapiConfig: { ...state.projectConfig.fastapiConfig, ...config },
+      },
     })),
 
   previewFiles: [],

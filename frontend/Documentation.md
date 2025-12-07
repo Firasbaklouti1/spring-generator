@@ -191,11 +191,12 @@ npm run type-check   # TypeScript type checking
 - Zoom and pan controls
 
 #### **Phase 3: Project Configuration**
-- Project metadata form:
-  - Group ID, Artifact ID, Name, Description
-  - Package Name
-  - Java Version (17, 21)
-  - Spring Boot Version (3.2.0, 3.1.5, 3.0.12)
+- **Stack Selector**: Choose between Spring Boot, Node.js, NestJS, or FastAPI
+- Project metadata form (Dynamic based on stack):
+  - Spring: Group ID, Artifact ID, Java Version, Boot Version
+  - Node/Nest: Node Version, Package Manager, ORM choice
+  - FastAPI: Python Version, Package Manager, Async support
+  - Common: Name, Description, Package Name
 - Dependencies modal:
   - Categorized by groups (Web, Security, SQL, NoSQL, etc.)
   - Search functionality
@@ -274,21 +275,41 @@ Response: application/zip
 
 ```typescript
 const payload = {
-  groupId: "com.example",
-  artifactId: "demo",
+  // Stack Selection
+  stackType: "SPRING", // or "NODE", "NEST", "FASTAPI"
+
+  // Common Metadata
   name: "Demo",
   description: "Demo project",
   packageName: "com.example.demo",
-  javaVersion: "17",
-  bootVersion: "3.2.0",
-  dependencies: [...],  // Array of full Dependency objects (converted from IDs)
+  dependencies: [...],  // Array of full Dependency objects
+  tables: [...],        // Array of table objects
+
+  // Code Generation Flags
   includeEntity: true,
   includeRepository: true,
   includeService: true,
   includeController: true,
   includeDto: false,
   includeMapper: false,
-  tables: [...]         // Array of table objects
+
+  // Stack-Specific Data (Nested)
+  springConfig: {
+    groupId: "com.example",
+    artifactId: "demo",
+    javaVersion: "17",
+    bootVersion: "3.2.0",
+    buildTool: "maven",
+    packaging: "jar"
+  },
+  
+  // Example for Node (Future)
+  // nodeConfig: {
+  //   nodeVersion: "20",
+  //   packageManager: "npm",
+  //   orm: "prisma",
+  //   useTypeScript: true
+  // }
 }
 
 const response = await fetch(
@@ -405,14 +426,14 @@ interface Relationship {
 #### **ProjectConfig**
 ```typescript
 interface ProjectConfig {
-  groupId: string
-  artifactId: string
+  // Stack Selection
+  stackType: "SPRING" | "NODE" | "NEST" | "FASTAPI"
+
+  // Common Metadata
   name: string
   description: string
   packageName: string
-  javaVersion: string
-  bootVersion: string
-  dependencies: string[] // Stores dependency IDs, converted to full objects before API call
+  dependencies: string[] // IDs
   
   // Code generation flags
   includeEntity: boolean
@@ -421,6 +442,39 @@ interface ProjectConfig {
   includeController: boolean
   includeDto: boolean
   includeMapper: boolean
+
+  // Stack-Specific Configurations
+  springConfig: {
+    groupId: string
+    artifactId: string
+    javaVersion: string
+    bootVersion: string
+    buildTool: "maven" | "gradle"
+    packaging: "jar" | "war"
+  }
+
+  nodeConfig: {
+    nodeVersion: string
+    packageManager: "npm" | "yarn" | "pnpm"
+    orm: "prisma" | "sequelize" | "typeorm"
+    useTypeScript: boolean
+    framework: "express" // implied
+  }
+
+  nestConfig: {
+    nodeVersion: string
+    packageManager: "npm" | "yarn" | "pnpm"
+    orm: "typeorm" | "prisma" | "mikro-orm"
+    useSwagger: boolean
+    useValidation: boolean
+  }
+
+  fastapiConfig: {
+    pythonVersion: string
+    packageManager: "pip" | "poetry" | "pipenv"
+    orm: "sqlalchemy" | "tortoise"
+    useAsync: boolean
+  }
 }
 ```
 
@@ -482,7 +536,13 @@ AI-powered schema generation:
 - "Generate Schema" button
 - Mock implementation (ready for AI integration)
 
-#### **7. ProjectConfigPhase**
+#### **7. StackSelector**
+- Grid of selectable technology stacks (Spring, Node, Nest, FastAPI)
+- Visual cards with icons and language badges
+- Highlight effects for selected stack
+- Managed by `projectConfig.stackType` in store
+
+#### **8. ProjectConfigPhase**
 - Metadata form
 - Dependencies summary with remove buttons
 - Generation summary (entities, fields, dependencies count)
