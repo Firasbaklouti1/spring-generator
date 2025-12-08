@@ -14,13 +14,15 @@ public class SqlParser {
 
     public List<Table> parseSql(String sql) throws SQLException {
         // Your actual Neon connection details from the error
-        String dbName = "neondb";
-        String user = "neondb_owner";
-        String pass = "npg_1kMXRKqy0vEH";
-        String baseUrl = "jdbc:postgresql://ep-hidden-dawn-agq8fr8x-pooler.c-2.eu-central-1.aws.neon.tech/";
+        String dbName = System.getenv("DB_NAME");
+        String user = System.getenv("DB_USER");
+        String pass = System.getenv("DB_PASSWORD");
+        String host = System.getenv("DB_HOST");
 
-        // Full connection URL
+
+        String baseUrl = "jdbc:postgresql://" + host + "/";
         String url = baseUrl + dbName + "?sslmode=require";
+
 
         try (Connection conn = DriverManager.getConnection(url, user, pass)) {
 
