@@ -13,37 +13,42 @@ import java.util.*;
 public class SqlParser {
 
     public List<Table> parseSql(String sql) throws SQLException {
-        // Your actual Neon connection details from the error
-        String dbName = System.getenv("DB_NAME");
-        String user = System.getenv("DB_USER");
-        String pass = System.getenv("DB_PASSWORD");
-        String host = System.getenv("DB_HOST");
+        String dbName = "freedb_springboot";
+        String user = "freedb_freedb_spring_user";
+        String pass = "xFxFCw5?X!HsWEA";
+        String host="sql.freedb.tech:3306/";
 
 
-        String baseUrl = "jdbc:postgresql://" + host + "/";
-        String url = baseUrl + dbName + "?sslmode=require";
+        // First connection URL (without database name for DROP/CREATE operations)
 
+        String baseUrl="jdbc:mysql://"+host+dbName+ "?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
+        // 1. Drop and recreate the database
+        try (Connection rootConn = DriverManager.getConnection(baseUrl, user, pass)) {
+            rootConn.prepareStatement("DROP DATABASE IF EXISTS " + dbName).execute();
+            rootConn.prepareStatement("CREATE DATABASE " + dbName).execute();
+        }
+
+        // 2. Connect to the freshly created database
+        String url = baseUrl + dbName + "?useSSL=false&serverTimezone=UTC";
         try (Connection conn = DriverManager.getConnection(url, user, pass)) {
 
-            // Clean all existing tables in the public schema
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-            }
-
-            // 2. Execute the SQL dump
+            // 3. Execute the SQL dump
             for (String stmt : sql.split(";")) {
                 if (!stmt.trim().isEmpty()) {
                     conn.prepareStatement(stmt).execute();
                 }
             }
 
-            // 3. Parse metadata using your existing method
+            // 4. Parse metadata using your existing method
             List<Table> tables = loadMetadata(conn);
             System.out.println(tables);
             return tables;
         }
     }
+
+
+
     public List<Table> loadMetadata(Connection connection) throws SQLException {
 
         DatabaseMetaData meta = connection.getMetaData();
