@@ -37,7 +37,7 @@ graph TB
         end
         
         Factory --> ISP
-        ISP <|-- Spring
+        ISP --|> Spring
         Spring --> ICG
         Spring --> ITM
         Spring --> ISO
