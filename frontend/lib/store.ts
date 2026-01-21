@@ -17,6 +17,21 @@ export const AVAILABLE_STACKS: StackInfo[] = [
   { id: "FASTAPI", displayName: "FastAPI", language: "python", defaultVersion: "3.11", icon: "⚡" },
 ]
 
+export type ProjectStructure = "LAYERED" | "FEATURE" | "DDD" | "HEXAGONAL"
+
+export interface ProjectStructureInfo {
+  id: ProjectStructure
+  displayName: string
+  description: string
+}
+
+export const AVAILABLE_STRUCTURES: ProjectStructureInfo[] = [
+  { id: "LAYERED", displayName: "Layered (Package by Type)", description: "Traditional structure with separate folders for each layer" },
+  { id: "FEATURE", displayName: "Feature (Package by Feature)", description: "Each feature has its own package with all related classes" },
+  { id: "DDD", displayName: "DDD (Domain-Driven Design)", description: "Organized by bounded contexts with domain-focused structure" },
+  { id: "HEXAGONAL", displayName: "Hexagonal (Clean Architecture)", description: "Ports and adapters architecture with clear separation of concerns" },
+]
+
 export interface SpringConfig {
   groupId: string
   artifactId: string
@@ -24,6 +39,7 @@ export interface SpringConfig {
   bootVersion: string
   buildTool: "maven" | "gradle"
   packaging: "jar" | "war"
+  projectStructure: ProjectStructure
 }
 
 export interface NodeConfig {
@@ -232,6 +248,7 @@ const defaultSpringConfig: SpringConfig = {
   bootVersion: "3.2.0",
   buildTool: "maven",
   packaging: "jar",
+  projectStructure: "LAYERED",
 }
 
 const defaultNodeConfig: NodeConfig = {
