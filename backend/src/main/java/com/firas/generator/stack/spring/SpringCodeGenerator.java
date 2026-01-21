@@ -288,7 +288,6 @@ public class SpringCodeGenerator implements CodeGenerator {
         } else {
             System.out.println("DEBUG: Table " + table.getName() + " has NULL metadata");
         }
-        
         return model;
     }
 }

@@ -5,7 +5,7 @@ package com.firas.generator.model.config;
  * 
  * Each structure defines how source files are organized in the generated project:
  * - LAYERED: Traditional folder-by-type organization (entity/, repository/, service/, controller/)
- * - FEATURE: Folder-by-feature organization (user/UserEntity, user/UserRepository, etc.)
+ * - FEATURE: Folder-by-feature organization (user/User.java, user/UserRepository.java, etc.)
  * - DDD: Domain-Driven Design organization (domain/user/entity/, domain/user/repository/)
  * - HEXAGONAL: Hexagonal/Clean Architecture (domain/model/, application/port/, infrastructure/adapter/)
  * 
