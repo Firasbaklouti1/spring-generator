@@ -29,6 +29,9 @@ public class SpringConfig {
     
     /** Packaging type: "jar" or "war" */
     private String packaging = "jar";
+    
+    /** Project structure format: layered, feature, ddd, hexagonal */
+    private ProjectStructure projectStructure = ProjectStructure.LAYERED;
 
     // Constructors
     public SpringConfig() {}
@@ -56,4 +59,7 @@ public class SpringConfig {
 
     public String getPackaging() { return packaging; }
     public void setPackaging(String packaging) { this.packaging = packaging; }
+
+    public ProjectStructure getProjectStructure() { return projectStructure; }
+    public void setProjectStructure(ProjectStructure projectStructure) { this.projectStructure = projectStructure; }
 }

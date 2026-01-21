@@ -73,6 +73,9 @@ public class SpringStackProvider implements StackProvider {
         
         List<FilePreview> files = new ArrayList<>();
         
+        // Set Spring config on code generator for project structure support
+        codeGenerator.setSpringConfig(request.getEffectiveSpringConfig());
+        
         // Generate project structure files
         files.add(generatePom(request));
         files.add(generateMainClass(request));
