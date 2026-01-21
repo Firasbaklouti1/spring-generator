@@ -66,12 +66,27 @@ public class SpringStackProvider implements StackProvider {
         return dependencyProvider;
     }
     
+    /**
+     * Generate all source, configuration and ancillary files for a Spring project from the provided request.
+     *
+     * The method may mutate table metadata and relationships in the supplied request to reflect security
+     * configuration (for example injecting password fields, role relationships, and RBAC settings) so templates
+     * can render correctly. It also configures the code generator with the effective Spring and security settings
+     * before producing generated artifacts.
+     *
+     * @param request the project generation request containing project settings, tables, and feature flags
+     * @return a list of FilePreview objects representing the generated project files (paths and contents)
+     * @throws IOException if an I/O error occurs while producing file contents
+     */
     @Override
     public List<FilePreview> generateProject(ProjectRequest request) throws IOException {
         // Apply type mappings to all columns
         applyTypeMappings(request);
         
         List<FilePreview> files = new ArrayList<>();
+        
+        // Set Spring config on code generator for project structure support
+        codeGenerator.setSpringConfig(request.getEffectiveSpringConfig());
         
         // Generate project structure files
         files.add(generatePom(request));

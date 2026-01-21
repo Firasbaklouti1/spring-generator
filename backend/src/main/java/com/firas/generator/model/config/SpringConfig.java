@@ -29,8 +29,16 @@ public class SpringConfig {
     
     /** Packaging type: "jar" or "war" */
     private String packaging = "jar";
+    
+    /** Project structure format: layered, feature, ddd, hexagonal */
+    private ProjectStructure projectStructure = ProjectStructure.LAYERED;
 
-    // Constructors
+    /**
+ * Creates a SpringConfig initialized with the class's default configuration values.
+ *
+ * Defaults: groupId="com.example", artifactId="demo", javaVersion="17", bootVersion="3.2.0",
+ * buildTool="maven", packaging="jar", projectStructure=ProjectStructure.LAYERED.
+ */
     public SpringConfig() {}
     
     public SpringConfig(String groupId, String artifactId) {
@@ -54,6 +62,29 @@ public class SpringConfig {
     public String getBuildTool() { return buildTool; }
     public void setBuildTool(String buildTool) { this.buildTool = buildTool; }
 
-    public String getPackaging() { return packaging; }
-    public void setPackaging(String packaging) { this.packaging = packaging; }
+    /**
+ * Packaging type used for the generated project.
+ *
+ * @return the packaging type, either "jar" or "war".
+ */
+public String getPackaging() { return packaging; }
+    /**
+ * Set the packaging type for the generated project.
+ *
+ * @param packaging the packaging type to use (e.g., "jar" or "war")
+ */
+public void setPackaging(String packaging) { this.packaging = packaging; }
+
+    /**
+ * The selected project structure format for the generated project.
+ *
+ * @return the configured ProjectStructure (for example, LAYERED, FEATURE, DDD, or HEXAGONAL)
+ */
+public ProjectStructure getProjectStructure() { return projectStructure; }
+    /**
+ * Set the project structure format used for generated projects.
+ *
+ * @param projectStructure the project structure to use (e.g., layered, feature, ddd, hexagonal)
+ */
+public void setProjectStructure(ProjectStructure projectStructure) { this.projectStructure = projectStructure; }
 }
