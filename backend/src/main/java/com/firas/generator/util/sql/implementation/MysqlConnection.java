@@ -7,50 +7,42 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class MysqlConnection implements SqlConnection {
-    // Railway MySQL environment variables
-    // Use public host/port for local dev, internal for Railway deployment
-    private final String host = getHost();
-    private final String port = getPort();
-    private final String user = System.getenv("MYSQLUSER") != null ? System.getenv("MYSQLUSER") : "root";
-    private final String pass = System.getenv("MYSQLPASSWORD") != null ? System.getenv("MYSQLPASSWORD") : System.getenv("MYSQL_ROOT_PASSWORD");
-    private final String dbName = System.getenv("MYSQLDATABASE") != null ? System.getenv("MYSQLDATABASE") : System.getenv("MYSQL_DATABASE");
+    // Railway MySQL environment variables - try multiple variable names for compatibility
+    private final String host;
+    private final String port;
+    private final String user;
+    private final String pass;
+    private final String dbName;
 
-    // For local development, use public URL; on Railway, use internal
-    private static String getHost() {
-        // Check if running on Railway (internal host resolves)
-        String internalHost = System.getenv("MYSQLHOST");
-        String publicUrl = System.getenv("MYSQL_PUBLIC_URL");
+    public MysqlConnection() {
+        // Try different environment variable formats that Railway might use
+        this.host = getEnvWithFallback("MYSQLHOST", "MYSQL_HOST", "mysql.railway.internal");
+        this.port = getEnvWithFallback("MYSQLPORT", "MYSQL_PORT", "3306");
+        this.user = getEnvWithFallback("MYSQLUSER", "MYSQL_USER", "root");
+        this.pass = getEnvWithFallback("MYSQLPASSWORD", "MYSQL_PASSWORD", "MYSQL_ROOT_PASSWORD");
+        this.dbName = getEnvWithFallback("MYSQLDATABASE", "MYSQL_DATABASE", "railway");
 
-        // If we have a public URL, extract host from it for local dev
-        // Format: mysql://user:pass@host:port/database
-        if (publicUrl != null && !isRunningOnRailway()) {
-            try {
-                String hostPort = publicUrl.split("@")[1].split("/")[0];
-                return hostPort.split(":")[0];
-            } catch (Exception e) {
-                // fallback
-            }
-        }
-        return internalHost;
+        // Debug logging to help troubleshoot
+        System.out.println("MySQL Connection Config:");
+        System.out.println("  Host: " + this.host);
+        System.out.println("  Port: " + this.port);
+        System.out.println("  User: " + this.user);
+        System.out.println("  Database: " + this.dbName);
+        System.out.println("  RAILWAY_ENVIRONMENT: " + System.getenv("RAILWAY_ENVIRONMENT"));
     }
 
-    private static String getPort() {
-        String publicUrl = System.getenv("MYSQL_PUBLIC_URL");
+    private static String getEnvWithFallback(String primary, String secondary, String defaultVal) {
+        String value = System.getenv(primary);
+        if (value != null && !value.isEmpty()) return value;
 
-        if (publicUrl != null && !isRunningOnRailway()) {
-            try {
-                String hostPort = publicUrl.split("@")[1].split("/")[0];
-                return hostPort.split(":")[1];
-            } catch (Exception e) {
-                // fallback
-            }
-        }
-        return System.getenv("MYSQLPORT") != null ? System.getenv("MYSQLPORT") : "3306";
-    }
+        value = System.getenv(secondary);
+        if (value != null && !value.isEmpty()) return value;
 
-    // Check if running on Railway by looking for RAILWAY_ENVIRONMENT variable
-    private static boolean isRunningOnRailway() {
-        return System.getenv("RAILWAY_ENVIRONMENT") != null;
+        // Check if defaultVal is actually another env var name
+        value = System.getenv(defaultVal);
+        if (value != null && !value.isEmpty()) return value;
+
+        return defaultVal;
     }
 
     @Override
